@@ -1,6 +1,6 @@
 // SAGA app shell: network-first so updates show up, cache as the offline fallback.
 // API calls and photos are never cached.
-const CACHE = "saga-m-v8";
+const CACHE = "saga-m-v9";
 const SHELL = ["/m/", "/m/manifest.webmanifest", "/m/icons/apple-touch-icon.png", "/m/icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {

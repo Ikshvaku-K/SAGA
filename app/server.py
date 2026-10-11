@@ -32,6 +32,7 @@ if (ROOT / ".env.local").exists():
         if "=" in _line and not _line.lstrip().startswith("#"):
             os.environ.setdefault(*_line.split("=", 1))
 from ag.audit import audit
+from ag.geocode import geocode
 from ag.auth import COOKIE, DEMO_QUESTIONS, GATE_QUESTIONS, Gate
 from ag.classes import CLASSES, PALETTE
 from ag.model import BASELINE, load, predict
@@ -355,9 +356,13 @@ async def app_create_report(request: Request, file: UploadFile = File(...), devi
 def app_edit_report(rid: str, body: AppEditIn):
     if not STORE.check_key(rid, body.key):
         raise HTTPException(403, "This report can only be changed from the phone that sent it.")
-    if body.lat is not None or body.place:
-        STORE.set_location(rid, body.lat, body.lon, body.place[:200] if body.place else None,
-                           "app-gps" if body.lat is not None else "text")
+    if body.lat is not None:
+        STORE.set_location(rid, body.lat, body.lon, body.place[:200] if body.place else None, "app-gps")
+    elif body.place:
+        # a typed place: look it up so the report can appear on the map
+        hit = geocode(body.place)
+        STORE.set_location(rid, hit[0] if hit else None, hit[1] if hit else None, body.place[:200],
+                           "text-geocoded" if hit else "text")
     if body.verdict or body.note:
         try:
             STORE.set_feedback(rid, body.verdict, body.note[:500] if body.note else None)
