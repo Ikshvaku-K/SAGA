@@ -176,7 +176,7 @@ ul.tight { margin: 6px 0 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
 code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
 .leaflet-container { background: var(--surface-2); font: inherit; }
 /* phones: only Audit + City map (the report and method pages are desktop views) */
-.mobile nav [data-tab="report"], .mobile nav [data-tab="method"], .mobile #tab-report, .mobile #tab-method { display: none !important; }
+.mobile nav [data-tab="method"], .mobile #tab-method { display: none !important; }
 .tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4); }
 </style>
 </head>
@@ -189,13 +189,11 @@ code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: 
         <div><h1>SAGA</h1><p>Street Accessibility and Guidance Audit</p></div>
       </div>
       <a class="badge" href="/m/" style="text-decoration:none" id="toMobile">📱 Mobile version</a>
-      <div class="badge" id="badge" style="margin-left:0">Loading model…</div>
       <a class="badge" href="#" onclick="logout(); return false;" style="margin-left:0; text-decoration:none">Log out</a>
     </div>
     <nav role="tablist">
       <button role="tab" data-tab="audit" aria-selected="true">Audit a photo</button>
       <button role="tab" data-tab="map" aria-selected="false">City map</button>
-      <button role="tab" data-tab="report" aria-selected="false">Model report</button>
       <button role="tab" data-tab="method" aria-selected="false">Method &amp; limits</button>
     </nav>
   </div>
@@ -264,43 +262,6 @@ code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: 
       <p class="small muted" style="margin:-6px 0 8px">Top 25 locations by priority score in the current view and filters.</p>
       <div class="tablewrap"><table><thead><tr><th class="n">#</th><th>Location</th><th>Findings</th><th class="n">Score</th></tr></thead><tbody id="prio"></tbody></table></div>
     </div>
-  </section>
-
-  <!-- REPORT -->
-  <section id="tab-report" hidden>
-    <h2>Model report</h2>
-    <p class="lede">Everything below is measured on the 1,000 official BDD100K validation images, which were never used for training or checkpoint selection.</p>
-    <div class="kpis" id="kpis"></div>
-    <div class="grid2">
-      <div class="card">
-        <h3>Per-class IoU on the test set</h3>
-        <div class="legend-row"><span><i style="background:var(--series-2)"></i>Cityscapes baseline</span><span><i style="background:var(--series-1)"></i>Fine-tuned on BDD100K</span></div>
-        <div class="iou" id="iou"></div>
-        <div class="axis-ticks"><span></span><div><span>0</span><span>0.25</span><span>0.5</span><span>0.75</span><span>1.0</span></div></div>
-      </div>
-      <div class="stack">
-        <div class="card">
-          <h3>Audit agreement with human labels</h3>
-          <p class="small muted" style="margin:-6px 0 8px">Flags from the model's masks vs. flags from the annotators' masks, per image.</p>
-          <div class="tablewrap"><table id="auditTable"></table></div>
-        </div>
-        <div class="card">
-          <h3>Holdout mIoU during training</h3>
-          <svg class="line" id="curve" role="img" aria-label="Holdout mIoU by training step"></svg>
-        </div>
-        <div class="card">
-          <h3>Training loss</h3>
-          <svg class="line" id="lossCurve" role="img" aria-label="Training loss by step"></svg>
-        </div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <h3>Where the audit is right and wrong</h3>
-      <div class="seg" role="group" id="galFlags" style="margin-bottom:12px"></div>
-      <div id="gallery"></div>
-    </div>
-    <div class="card" style="margin-top:16px" id="ruleReview" hidden></div>
-    <div class="card" style="margin-top:16px" id="fieldCard"></div>
   </section>
 
   <!-- METHOD -->
@@ -434,7 +395,6 @@ function openTab(t) {
   $$("main > section").forEach(s => s.hidden = s.id !== "tab-" + t);
   if (t === "map" && !loaded.map) { loaded.map = true; initMap(); }
   if (t === "map" && window.MAP) setTimeout(() => MAP.invalidateSize(), 50);
-  if (t === "report" && !loaded.report) { loaded.report = true; loadReport(); }
   history.replaceState(null, "", "#" + t);
 }
 
@@ -442,7 +402,6 @@ function openTab(t) {
 let INFO;
 fetch("/api/info").then(r => r.json()).then(d => {
   INFO = d;
-  $("#badge").replaceChildren("Model: ", h("b", {}, d.model_label));
   $("#swatches").replaceChildren(...d.classes.map((c, i) => h("span", {}, h("i", { style: `background:rgb(${d.palette[i].join(",")})` }), c)));
 });
 
@@ -626,7 +585,7 @@ function select(f) {
   tog.append(...[listenButton(f)].filter(Boolean));
   $("#detail").replaceChildren(img, tog,
     h("div", { class: "score", style: "margin-top:12px" }, h("span", { class: "num", style: "font-size:34px" }, f.score), h("span", { class: "of" }, "/ 100"), lvlChip(f.score)),
-    res ? h("div", { style: "margin:8px 0 4px" }, h("span", { class: "verdict" }, VERDICT[f.verdict] ?? VERDICT.null)) : null,
+    ...(res ? [h("div", { style: "margin:8px 0 4px" }, h("span", { class: "verdict" }, VERDICT[f.verdict] ?? VERDICT.null))] : []),
     h("div", { class: "small muted" }, res
       ? `Resident report · ${new Date(f.created * 1000).toLocaleString()}${f.place ? " · " + f.place : ""}`
       : `${f.lat.toFixed(5)}, ${f.lon.toFixed(5)} · frame ${f.id}`),
@@ -634,145 +593,9 @@ function select(f) {
   MARKERS.get(f.id)?.openTooltip();
 }
 
-// ---------- report tab ----------
-async function loadReport() {
-  const d = await (await fetch("/api/report")).json();
-  const b = d.seg.baseline, ft = d.seg.finetuned;
-  const ab = d.audit.baseline, af = d.audit.finetuned;
-  const PCT = { fmt: v => (v * 100).toFixed(1), d: v => (v * 100).toFixed(1) + " pts" };
-  const DEC = { fmt: v => v.toFixed(2), d: v => v.toFixed(2) };
-  const kpi = (label, now, before, u = PCT) => {
-    const kids = [h("div", { class: "k" }, label), h("div", { class: "v" }, now == null ? "—" : u.fmt(now))];
-    if (now != null && before != null) {
-      const dlt = now - before;
-      kids.push(h("div", { class: `delta ${dlt >= 0 ? "up" : "down"}` }, `${dlt >= 0 ? "▲ +" : "▼ −"}${u.d(Math.abs(dlt))} vs baseline ${u.fmt(before)}`));
-    } else kids.push(h("div", { class: "s" }, now == null ? "fine-tuning in progress" : "Cityscapes baseline"));
-    return h("div", { class: "stat" }, ...kids);
-  };
-  const cur = ft || b;
-  $("#kpis").replaceChildren(
-    kpi("Test mIoU (19 classes, %)", cur?.mIoU, ft ? b?.mIoU : null),
-    kpi("Sidewalk IoU (%)", cur?.iou.sidewalk, ft ? b?.iou.sidewalk : null),
-    kpi("Person IoU (%)", cur?.iou.person, ft ? b?.iou.person : null),
-    kpi("Pedestrian-in-road flag F1", (af || ab)?.flags.pedestrian_in_roadway.f1, af ? ab?.flags.pedestrian_in_roadway.f1 : null, DEC));
-
-  // per-class IoU bars
-  const key = new Set(["road", "sidewalk", "person", "car", "bicycle", "motorcycle"]);
-  const rows = [];
-  for (const c of (b || ft) ? Object.keys((b || ft).iou) : []) {
-    const bars = h("div", { class: "bars" });
-    for (const [kind, src, name] of [["base", b, "Cityscapes baseline"], ["ft", ft, "Fine-tuned"]]) {
-      if (!src) continue;
-      const v = src.iou[c];
-      const bar = h("div", { class: `b ${kind}`, tabindex: 0, style: `width:${Math.max(0.5, v * 100)}%` }, h("em", {}, v.toFixed(2)));
-      const tipNodes = () => [h("b", {}, v.toFixed(3)), h("div", { class: "row" }, h("i", { style: `background:var(--series-${kind === "ft" ? 1 : 2})` }), `${name} · ${c}`)];
-      bar.addEventListener("pointermove", e => showTip(e, tipNodes()));
-      bar.addEventListener("pointerleave", hideTip);
-      bar.addEventListener("focus", () => { const r = bar.getBoundingClientRect(); showTip({ clientX: r.right, clientY: r.top }, tipNodes()); });
-      bar.addEventListener("blur", hideTip);
-      bars.append(bar);
-    }
-    rows.push(h("div", { class: "name" + (key.has(c) ? " key" : "") }, c), bars);
-  }
-  $("#iou").replaceChildren(...rows);
-  $$("#iou .bars").forEach(el => el.style.backgroundImage = `repeating-linear-gradient(to right, transparent 0, transparent calc(25% - 1px), var(--grid) calc(25% - 1px), var(--grid) 25%)`);
-
-  // audit table
-  const t = $("#auditTable");
-  const head = h("tr", {}, h("th", {}, "Flag"), h("th", { class: "n" }, "Cases"), h("th", { class: "n" }, "Baseline F1"), h("th", { class: "n" }, "Fine-tuned P"), h("th", { class: "n" }, "R"), h("th", { class: "n" }, "F1"));
-  const body = Object.keys(FLAGS).map(f => {
-    const B = ab?.flags[f], F = af?.flags[f];
-    return h("tr", {}, h("td", {}, h("span", { class: `chip ${FLAGS[f].cls}` }, FLAGS[f].label)), h("td", { class: "n" }, (F || B)?.support ?? "—"),
-      h("td", { class: "n" }, B ? B.f1.toFixed(2) : "—"), h("td", { class: "n" }, F ? F.precision.toFixed(2) : "—"),
-      h("td", { class: "n" }, F ? F.recall.toFixed(2) : "—"), h("td", { class: "n" }, F ? h("b", {}, F.f1.toFixed(2)) : "—"));
-  });
-  t.replaceChildren(h("thead", {}, head), h("tbody", {}, body));
-
-  lineChart($("#curve"), d.curve, { fmt: v => (v * 100).toFixed(1) + "%", name: "Holdout mIoU", empty: "First holdout evaluation at step 1,000.", ref: d.curve_ref, refLabel: "Cityscapes baseline" });
-  lineChart($("#lossCurve"), d.loss, { fmt: v => v.toFixed(3), name: "Loss (50-step mean)", empty: "No training log yet." });
-
-  // gallery
-  const g = d.gallery || {};
-  const flags = Object.keys(FLAGS).filter(f => g[f]);
-  if (!flags.length) { $("#gallery").replaceChildren(h("p", { class: "muted" }, "Gallery is generated after the final evaluation (scripts/make_gallery.py).")); }
-  else {
-    const show = f => {
-      $$("#galFlags .btn").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === f));
-      const cols = [["tp", "Correct flag"], ["fp", "False alarm"], ["fn", "Missed"]];
-      $("#gallery").replaceChildren(...cols.map(([k, lab]) => h("div", {}, h("h3", { class: "small", style: "margin:4px 0 8px" }, `${lab} (${g[f][k].length})`),
-        h("div", { class: "stack", style: "gap:10px" }, g[f][k].slice(0, 3).map(n => h("figure", {}, h("img", { src: "/media/gallery/" + n, alt: lab, loading: "lazy" }), h("figcaption", {}, "Model overlay · " + n.split("_")[0])))))));
-      $("#gallery").className = "gallery";
-    };
-    $("#galFlags").replaceChildren(...flags.map(f => h("button", { class: "btn", "data-f": f, onclick: () => show(f) }, FLAGS[f].label)));
-    show(flags[0]);
-  }
-  renderField(await fetch("/api/reports/stats").then(r => r.ok ? r.json() : null).catch(() => null));
-  if (d.rule_review) {
-    const rr = d.rule_review;
-    $("#ruleReview").hidden = false;
-    $("#ruleReview").replaceChildren(h("h3", {}, "Are the rules themselves right?"), h("p", { class: "note", style: "margin:0" }, rr.text));
-  }
-}
-
-function renderField(st) {
-  const card = $("#fieldCard");
-  const head = [h("h3", {}, "Field validation from residents"),
-    h("p", { class: "small muted", style: "margin:-6px 0 10px" }, "Each 👍 / 👎 on the app's answer is a real-world label. Precision here is measured on residents' own photos, not on the dataset.")];
-  if (!st || !st.reports) { card.replaceChildren(...head, h("p", { class: "muted", style: "margin:0" }, "No resident reports yet. Take a photo in the SAGA mobile app to start.")); return; }
-  const rows = Object.keys(FLAGS).map(f => { const m = st.flags[f];
-    return h("tr", {}, h("td", {}, h("span", { class: `chip ${FLAGS[f].cls}` }, FLAGS[f].label)), h("td", { class: "n" }, m.raised_and_judged),
-      h("td", { class: "n" }, m.confirmed), h("td", { class: "n" }, m.precision == null ? "—" : h("b", {}, m.precision.toFixed(2)))); });
-  card.replaceChildren(...head,
-    h("div", { class: "kpis" }, stat("Reports", st.reports, `${st.reporters} resident${st.reporters === 1 ? "" : "s"}`),
-      stat("With location", st.with_location, "on the map"), stat("Judged by resident", st.judged,
-        `${st.verdicts.confirmed} confirmed · ${st.verdicts.rejected} disputed`),
-      stat("Missed barriers", st.verdicts.missed, st.miss_rate == null ? "no clean photos judged" : `${(st.miss_rate * 100).toFixed(0)}% of clean calls`)),
-    h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Flag"), h("th", { class: "n" }, "Raised & judged"), h("th", { class: "n" }, "Confirmed"), h("th", { class: "n" }, "Field precision"))), h("tbody", {}, rows))));
-}
-
-function lineChart(svg, pts, { fmt, name, empty, ref = null, refLabel = "" }) {
-  const W = svg.clientWidth || 480, H = 190, m = { l: 44, r: 12, t: 10, b: 24 };
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.replaceChildren();
-  const ns = "http://www.w3.org/2000/svg";
-  const s = (tag, a) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
-  if (!pts || !pts.length) { const t = s("text", { x: W / 2, y: H / 2, "text-anchor": "middle", fill: "var(--muted)", "font-size": 13 }); t.textContent = empty; svg.append(t); return; }
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  let y0 = Math.min(...ys, ref ?? Infinity), y1 = Math.max(...ys, ref ?? -Infinity); const pad = (y1 - y0) * 0.15 || Math.abs(y1) * 0.05 || 0.01; y0 -= pad; y1 += pad;
-  const x0 = 0, x1 = Math.max(...xs);
-  const X = v => m.l + (v - x0) / Math.max(1, x1 - x0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
-  for (let i = 0; i <= 4; i++) {
-    const v = y0 + (y1 - y0) * i / 4;
-    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": 1 }));
-    const t = s("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 }); t.textContent = fmt(v); svg.append(t);
-  }
-  const xt = s("text", { x: W - m.r, y: H - 6, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 }); xt.textContent = `step ${x1.toLocaleString()}`; svg.append(xt);
-  const xs0 = s("text", { x: m.l, y: H - 6, fill: "var(--muted)", "font-size": 11 }); xs0.textContent = "0"; svg.append(xs0);
-  svg.append(s("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)" }));
-  if (ref != null) {
-    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(ref), y2: Y(ref), stroke: "var(--ink-2)", "stroke-width": 1.5, "stroke-dasharray": "5 4" }));
-    const rl = s("text", { x: W - m.r, y: Y(ref) - 6, "text-anchor": "end", fill: "var(--ink-2)", "font-size": 11 }); rl.textContent = `${refLabel} ${fmt(ref)}`; svg.append(rl);
-  }
-  svg.append(s("path", { d: pts.map((p, i) => `${i ? "L" : "M"}${X(p[0])},${Y(p[1])}`).join(""), fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
-  if (pts.length <= 20) pts.forEach(p => svg.append(s("circle", { cx: X(p[0]), cy: Y(p[1]), r: 4, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2 })));
-  const cross = s("line", { y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
-  const dot = s("circle", { r: 4.5, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
-  svg.append(cross, dot);
-  const hit = s("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" });
-  hit.addEventListener("pointermove", e => {
-    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
-    let best = pts[0]; for (const p of pts) if (Math.abs(X(p[0]) - px) < Math.abs(X(best[0]) - px)) best = p;
-    cross.setAttribute("x1", X(best[0])); cross.setAttribute("x2", X(best[0])); cross.setAttribute("visibility", "visible");
-    dot.setAttribute("cx", X(best[0])); dot.setAttribute("cy", Y(best[1])); dot.setAttribute("visibility", "visible");
-    showTip(e, [h("b", {}, fmt(best[1])), h("div", { class: "row" }, h("i", { style: "background:var(--series-1)" }), `${name} · step ${best[0].toLocaleString()}`)]);
-  });
-  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); hideTip(); });
-  svg.append(hit);
-}
-
 const route = () => {
   const t = location.hash.slice(1);
-  const allowed = IS_MOBILE ? ["map"] : ["map", "report", "method"];
+  const allowed = IS_MOBILE ? ["map"] : ["map", "method"];
   openTab(allowed.includes(t) ? t : "audit");
 };
 addEventListener("hashchange", route);
