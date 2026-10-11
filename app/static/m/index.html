@@ -325,7 +325,8 @@ async function shrink(file) {
 
 async function audit(file) {
   show("#home", false); show("#result"); resetResult();
-  geo = getPosition(10000, true);  // fresh fix: never reuse the previous report's position
+  geo = ("geolocation" in navigator ? locate() : Promise.resolve({}))  // precise, then approximate
+    .then((r) => { setLocPill(!!r.pos); return r.pos || null; }).catch(() => null);
   const { blob, preview } = await shrink(file);
   $("#resImg").src = preview; $("#resImg").alt = "Your photo";
   $("#viewer").append(el("div", { class: "busy" }, el("div", {}, el("div", { class: "spinner" }), "Checking the sidewalk…")));
@@ -421,14 +422,16 @@ $("#noteSend").onclick = async () => {
   show("#fbNote", false); done("Thanks, this helps the model learn.");
 };
 $("#useLoc").onclick = async () => {
-  const pos = await getPosition(10000, true);
+  const r = await locate();
+  const pos = r.pos || null;
   if (!pos) { $("#place").focus(); return; }
   await edit({ lat: pos.lat, lon: pos.lon }); pinned("Pinned on the city map.");
 };
 $("#placeSave").onclick = async () => {
   const place = $("#place").value.trim();
   if (place.length < 3) { $("#place").focus(); return; }
-  await edit({ place }); pinned(`Saved location: ${place}`);
+  const saved = await edit({ place });
+  pinned(saved.lat != null ? `Pinned on the map: ${place}` : `Saved "${place}", but couldn't find it on the map. Try a street and city.`);
 };
 
 // ---------- recent reports (this device only) ----------
