@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SAGA: Street Accessibility and Guidance Audit</title>
+<meta name="description" content="Photograph a blocked or missing sidewalk and get an instant accessibility audit.">
+<link rel="manifest" href="/m/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/m/icons/apple-touch-icon.png">
+<link rel="icon" href="/m/icons/favicon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SAGA">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1a19" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f0efeb;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-ink: #ffffff;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --f-obs: #eda100; --f-ped: #e34948; --f-side: #4a3aa7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #262624;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --border: rgba(255,255,255,0.12);
+    --accent: #3987e5; --f-obs: #c98500; --f-ped: #e66767; --f-side: #9085e9;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #262624;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --border: rgba(255,255,255,0.12);
+  --accent: #3987e5; --f-obs: #c98500; --f-ped: #e66767; --f-side: #9085e9;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 17px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  min-height: 100dvh;
+}
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 16px 32px; }
+header { display: flex; align-items: center; gap: 10px; padding: 14px 0 10px; }
+header img { width: 32px; height: 32px; border-radius: 8px; }
+header h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; line-height: 1.15; flex: 1; min-width: 0; }
+header h1 .sub { display: block; font-size: 12px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
+header a { margin-left: auto; font-size: 15px; color: var(--accent); text-decoration: none; padding: 8px 4px; white-space: nowrap; }
+header a + a { margin-left: 6px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-top: 12px; }
+h2 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+p { margin: 0 0 10px; }
+.muted { color: var(--ink-2); }
+.small { font-size: 14px; }
+button, .btn {
+  appearance: none; font: inherit; font-weight: 600; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); padding: 14px 16px; min-height: 50px; cursor: pointer; width: 100%;
+}
+button:active { transform: scale(0.98); }
+.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+.shoot {
+  display: grid; place-items: center; gap: 10px; width: 100%; padding: 30px 16px; border-radius: 18px;
+  background: var(--accent); color: #fff; border: 0; font-size: 20px; margin-top: 14px;
+}
+.shoot svg { width: 46px; height: 46px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); }
+.pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.pill.on i { background: var(--good); }
+.viewer { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.viewer img { display: block; width: 100%; height: auto; }
+.viewer .busy { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--surface) 65%, transparent); font-weight: 600; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: spin 0.9s linear infinite; margin: 0 auto 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 10px; }
+.seg button { border: 0; border-radius: 0; min-height: 40px; padding: 8px 14px; width: auto; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.score { display: flex; align-items: baseline; gap: 8px; }
+.score .num { font-size: 46px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.lvl { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); margin-top: 8px; }
+.lvl i { width: 10px; height: 10px; border-radius: 50%; }
+ul.findings { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+ul.findings li { border: 1px solid var(--border); border-left: 5px solid var(--c, var(--good)); border-radius: 10px; padding: 10px 12px; }
+.f-obs { --c: var(--f-obs); } .f-ped { --c: var(--f-ped); } .f-side { --c: var(--f-side); }
+textarea, input[type=text] {
+  width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px; margin: 6px 0 10px;
+}
+.recent { list-style: none; padding: 0; margin: 8px 0 0; }
+.recent li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.recent img { width: 72px; height: 41px; object-fit: cover; border-radius: 6px; background: var(--surface-2); }
+.recent .meta { flex: 1; min-width: 0; font-size: 15px; }
+.recent .meta span { display: block; color: var(--ink-2); font-size: 13px; }
+.done { color: var(--good); font-weight: 600; }
+[hidden] { display: none !important; }
+.views { display: flex; gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin: 4px 0 12px; position: sticky; top: env(safe-area-inset-top); z-index: 500; }
+.views button { flex: 1; min-height: 40px; padding: 8px; border: 0; border-radius: 9px; background: transparent; font-weight: 600; color: var(--ink-2); }
+.views button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+#mmap { height: max(340px, calc(100dvh - 300px)); border-radius: 14px; border: 1px solid var(--border); z-index: 1; background: var(--surface-2); }
+.maptools { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.maptools button { width: auto; min-height: 40px; padding: 8px 12px; font-size: 15px; }
+.maptools button:disabled { opacity: 0.6; }
+.maptools button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.mlegend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; color: var(--ink-2); margin-top: 8px; }
+.mlegend span { display: inline-flex; align-items: center; gap: 5px; }
+.mlegend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+#mdetail img { width: 100%; border-radius: 10px; display: block; background: var(--surface-2); }
+.tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4); }
+.leaflet-container { font: inherit; }
+.stack { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; font: 700 13px/1 -apple-system, system-ui, sans-serif; border: 3.5px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.here { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 12px; }
+.here li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: start; border-top: 1px solid var(--border); padding-top: 12px; cursor: pointer; }
+.here img { width: 110px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/m/icons/apple-touch-icon.png" alt="">
+    <h1>SAGA <span class="sub">Street Accessibility and Guidance Audit</span></h1>
+    <a href="/" id="toWeb" hidden>🖥 Web version</a>
+    <a href="#" onclick="logout(); return false;">Log out</a>
+  </header>
+  <nav class="views" role="tablist" aria-label="View" id="views" hidden>
+    <button role="tab" id="tabReport" aria-selected="true">📷 Report</button>
+    <button role="tab" id="tabMap" aria-selected="false">🗺️ Map</button>
+  </nav>
+
+  <!-- first run -->
+  <section id="intro" class="card" hidden>
+    <h2>Report sidewalk barriers</h2>
+    <p>Photograph a blocked, broken or missing sidewalk. SAGA checks it in a few seconds and adds it to a public accessibility map the city can act on.</p>
+    <p class="muted small"><b>Privacy:</b> people and licence plates are blurred before your photo is saved. No account, no name, no phone number. Your location is only used to pin the report on the map.</p>
+    <button class="primary" id="introOk">Get started</button>
+  </section>
+
+  <div id="reportView">
+  <!-- capture -->
+  <section id="home">
+    <button class="shoot" id="shoot" aria-label="Take a photo of the sidewalk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>
+      Take photo
+    </button>
+    <div class="row" style="margin-top:10px">
+      <button id="pick">Choose from library</button>
+    </div>
+    <p style="margin-top:12px"><span class="pill" id="locPill"><i></i><span>Location: tap to allow</span></span></p>
+    <p class="muted small">Tip: stand at the curb and hold the phone sideways, like a dashcam view. That's what the model learned from.</p>
+    <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+    <input type="file" id="libIn" accept="image/*" hidden>
+  </section>
+
+  <!-- result -->
+  <section id="result" class="card" hidden>
+    <div class="viewer" id="viewer"><img id="resImg" alt=""></div>
+    <div class="seg" role="group" aria-label="Image view" id="viewSeg" hidden>
+      <button id="vOv" aria-pressed="true">Overlay</button><button id="vPh" aria-pressed="false">Photo</button>
+    </div>
+    <div id="answer" aria-live="polite" style="margin-top:14px"></div>
+
+    <div id="feedback" hidden style="margin-top:16px">
+      <p id="fbQ"><b>Did I get this right?</b></p>
+      <div class="row" id="fbBtns">
+        <button id="fbYes" aria-label="Yes, correct">👍 Correct</button>
+        <button id="fbNo" aria-label="No, wrong">👎 Wrong</button>
+      </div>
+      <div id="fbNote" hidden>
+        <label for="note" class="small muted">What did I get wrong? (optional)</label>
+        <textarea id="note" rows="2" maxlength="500" placeholder="e.g. it's a driveway, not a sidewalk"></textarea>
+        <button id="noteSend">Send note</button>
+      </div>
+      <p id="fbDone" class="done" hidden role="status"></p>
+    </div>
+
+    <div id="where" hidden style="margin-top:16px">
+      <p><b>Where was this?</b></p>
+      <button id="useLoc">📍 Use my current location</button>
+      <label for="place" class="small muted" style="display:block;margin-top:10px">or type the nearest cross street</label>
+      <input type="text" id="place" maxlength="200" placeholder="Atlantic Ave &amp; 4th Ave, Brooklyn" autocomplete="off">
+      <button id="placeSave">Save location</button>
+    </div>
+    <p id="pinned" class="done" hidden role="status"></p>
+
+    <button class="primary" id="again" style="margin-top:16px">Take another photo</button>
+  </section>
+
+  <!-- recent -->
+  <section id="recentCard" class="card" hidden>
+    <h2 style="font-size:18px">Your recent reports</h2>
+    <ul class="recent" id="recent"></ul>
+  </section>
+  </div>
+
+  <!-- map -->
+  <div id="mapView" hidden>
+    <div id="mmap" role="region" aria-label="Map of audited locations and resident reports"></div>
+    <div class="maptools" role="group" aria-label="Jump to">
+      <button class="city" data-city="nyc" aria-pressed="false">New York</button>
+      <button class="city" data-city="sf" aria-pressed="false">SF Bay Area</button>
+      <button id="locateMe" aria-pressed="false">📍 Near me</button>
+    </div>
+    <div class="maptools" id="voiceTools" hidden>
+      <button id="guide" aria-pressed="false">🔊 Voice guidance: off</button>
+    </div>
+    <div class="maptools">
+      <label class="small" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="onlyMine"> Only my reports</label>
+    </div>
+    <p class="small" id="locStatus" role="status" aria-live="polite" style="margin:8px 2px 0;min-height:20px"></p>
+    <div class="mlegend" id="mlegend"></div>
+    <section class="card" id="mdetail"><p class="muted small" style="margin:0">Tap a point to see the photo and what SAGA found.</p></section>
+  </div>
+</div>
+
+<script>
+// Session expired or missing: any 401 from the server sends the user back to the gate.
+const _fetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _fetch(...args);
+  if (res.status === 401) location.href = "/gate?next=" + encodeURIComponent(location.pathname + location.hash);
+  return res;
+};
+async function logout() {
+  if (window.AG_DEMO) { try { localStorage.removeItem("ag.recent.demo"); } catch {} }
+  await _fetch("/api/auth/logout", { method: "POST" }); location.href = "/gate";
+}
+// Demo sessions: say whose demo it is and how long is left, and sign out at 0:00.
+window.AG_DEMO = false;
+const demoReady = _fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((me) => {
+  if (!me || me.role !== "demo") return;
+  window.AG_DEMO = true;
+  const bar = document.createElement("div");
+  bar.setAttribute("role", "status");
+  bar.style.cssText = "position:sticky;top:0;z-index:2000;background:#2a78d6;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));text-align:center";
+  document.body.prepend(bar);
+  const end = async () => {
+    try { localStorage.removeItem("ag.recent.demo"); } catch {}
+    await _fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    location.href = "/gate?expired=1";
+  };
+  const tick = () => {
+    const left = Math.max(0, Math.round(me.expires - Date.now() / 1000));
+    bar.textContent = `Demo · Hi ${me.name} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left · nothing you upload is kept`;
+    if (left <= 0) end();
+  };
+  tick(); setInterval(tick, 1000);
+  window.demoLogout = end;
+  return me;
+});
+const $ = (s) => document.querySelector(s);
+// Laptops/desktops may switch to the web version; phones only ever get this mobile app.
+const IS_PHONE = /iPhone|iPod|Android.+Mobile|Windows Phone/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 0 && matchMedia("(max-width: 760px)").matches);
+if (!IS_PHONE) $("#toWeb").hidden = false;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const device = store.get("ag.device") || (() => { const id = crypto.randomUUID(); store.set("ag.device", id); return id; })();
+const LEVELS = [[70, "critical", "High priority"], [40, "serious", "Medium priority"], [1, "warning", "Low priority"], [0, "good", "No findings"]];
+const level = (s) => LEVELS.find(([m]) => s >= m);
+const FLAG_CLS = { sidewalk_obstruction: "f-obs", pedestrian_in_roadway: "f-ped", no_visible_sidewalk: "f-side" };
+let current = null, geo = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? (e.className = v) : e.setAttribute(k, v);
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+function show(id, on = true) { $(id).hidden = !on; }
+
+// ---------- first run ----------
+if (!store.get("ag.intro", false)) { show("#intro"); show("#home", false); }
+$("#introOk").onclick = () => { store.set("ag.intro", true); show("#intro", false); show("#home"); };
+
+// ---------- location ----------
+function getPosition(timeout = 8000, fresh = false) {
+  return new Promise((resolve) => {
+    if (!("geolocation" in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setLocPill(true); resolve({ lat: p.coords.latitude, lon: p.coords.longitude }); },
+      () => { setLocPill(false); resolve(null); },
+      { enableHighAccuracy: true, timeout, maximumAge: fresh ? 0 : 60000 });
+  });
+}
+function setLocPill(on) {
+  $("#locPill").classList.toggle("on", on);
+  $("#locPill span").textContent = on ? "Location: on" : "Location: off (you can type a cross street)";
+}
+$("#locPill").onclick = () => getPosition();
+if (navigator.permissions) navigator.permissions.query({ name: "geolocation" }).then((p) => { if (p.state === "granted") setLocPill(true); }).catch(() => {});
+
+// ---------- capture ----------
+$("#shoot").onclick = () => $("#camIn").click();
+$("#pick").onclick = () => $("#libIn").click();
+$("#again").onclick = () => $("#camIn").click();
+for (const id of ["#camIn", "#libIn"]) $(id).addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (f) audit(f);
+});
+
+// Shrink phone photos (often 12 MP) before upload; the model works at 1280 px anyway.
+async function shrink(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const s = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.88));
+    return { blob: blob || file, preview: c.toDataURL("image/jpeg", 0.6) };
+  } catch {
+    return { blob: file, preview: URL.createObjectURL(file) };
+  }
+}
+
+async function audit(file) {
+  show("#home", false); show("#result"); resetResult();
+  geo = getPosition(10000, true);  // fresh fix: never reuse the previous report's position
+  const { blob, preview } = await shrink(file);
+  $("#resImg").src = preview; $("#resImg").alt = "Your photo";
+  $("#viewer").append(el("div", { class: "busy" }, el("div", {}, el("div", { class: "spinner" }), "Checking the sidewalk…")));
+  $("#answer").textContent = "";
+  try {
+    const fd = new FormData();
+    fd.append("file", blob, "photo.jpg");
+    fd.append("device", device);
+    const res = await fetch("/api/app/reports", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Server error ${res.status}`);
+    current = await res.json();
+    renderResult(current);
+    remember(current);
+    const pos = await geo;
+    if (pos && !current.has_location) {
+      await edit({ lat: pos.lat, lon: pos.lon });
+      current.has_location = true;
+      pinned("Pinned on the city map.");
+    } else if (!current.has_location) {
+      show("#where");
+    } else {
+      pinned("Location taken from the photo.");
+    }
+  } catch (err) {
+    const msg = navigator.onLine === false ? "You're offline. Try again when you have signal." : `Couldn't check this photo: ${err.message}`;
+    $("#answer").replaceChildren(el("p", {}, msg));
+  } finally {
+    document.querySelector("#viewer .busy")?.remove();
+  }
+}
+
+function resetResult() {
+  current = null;
+  for (const id of ["#feedback", "#fbNote", "#fbDone", "#where", "#pinned", "#viewSeg"]) show(id, false);
+  show("#fbBtns"); show("#fbQ");
+  $("#note").value = ""; $("#place").value = "";
+}
+
+function renderResult(r) {
+  $("#resImg").src = "data:image/jpeg;base64," + r.overlay_jpeg_b64;
+  $("#resImg").alt = "Your photo with the model's colour overlay. People and plates are blurred.";
+  show("#viewSeg"); setView("ov");
+  const [, k, label] = level(r.score);
+  const kids = [
+    el("div", { class: "score" }, el("span", { class: "num" }, r.score), el("span", { class: "muted" }, "/ 100 repair priority")),
+    el("span", { class: "lvl" }, el("i", { style: `background:var(--${k})` }), label),
+  ];
+  if (r.findings.length) {
+    kids.push(el("ul", { class: "findings" }, r.findings.map((f) => el("li", { class: FLAG_CLS[f.flag] || "" }, f.text))));
+  } else {
+    kids.push(el("ul", { class: "findings" }, el("li", {}, "No blocked or missing sidewalk detected.")));
+  }
+  kids.push(el("p", { class: "muted small", style: "margin-top:12px" },
+    "Automated estimate. The model learned from dashcam footage, so photos taken from the sidewalk can be less accurate."));
+  $("#answer").replaceChildren(...kids);
+  $("#fbQ").innerHTML = r.findings.length ? "<b>Did I get this right?</b>" : "<b>Is there a barrier I missed?</b>";
+  $("#fbYes").textContent = r.findings.length ? "👍 Correct" : "👍 No barrier";
+  $("#fbNo").textContent = r.findings.length ? "👎 Wrong" : "👎 I missed one";
+  show("#feedback");
+}
+
+function setView(v) {
+  if (!current) return;
+  $("#vOv").setAttribute("aria-pressed", v === "ov"); $("#vPh").setAttribute("aria-pressed", v === "ph");
+  $("#resImg").src = "data:image/jpeg;base64," + (v === "ov" ? current.overlay_jpeg_b64 : current.photo_jpeg_b64);
+}
+$("#vOv").onclick = () => setView("ov");
+$("#vPh").onclick = () => setView("ph");
+
+// ---------- feedback & location ----------
+async function edit(body) {
+  const res = await fetch(`/api/app/reports/${current.id}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: current.key, ...body }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.json();
+}
+function done(msg) { show("#fbBtns", false); show("#fbQ", false); $("#fbDone").textContent = msg; show("#fbDone"); }
+function pinned(msg) { show("#where", false); $("#pinned").textContent = msg; show("#pinned"); }
+
+$("#fbYes").onclick = async () => {
+  await edit({ verdict: "confirmed" }); remember(current, "confirmed");
+  done(current.findings.length ? "Thanks, report verified." : "Thanks for confirming.");
+};
+$("#fbNo").onclick = async () => {
+  const v = current.findings.length ? "rejected" : "missed";
+  await edit({ verdict: v }); remember(current, v);
+  show("#fbBtns", false); show("#fbNote"); $("#note").focus();
+};
+$("#noteSend").onclick = async () => {
+  const note = $("#note").value.trim();
+  if (note) await edit({ note });
+  show("#fbNote", false); done("Thanks, this helps the model learn.");
+};
+$("#useLoc").onclick = async () => {
+  const pos = await getPosition(10000, true);
+  if (!pos) { $("#place").focus(); return; }
+  await edit({ lat: pos.lat, lon: pos.lon }); pinned("Pinned on the city map.");
+};
+$("#placeSave").onclick = async () => {
+  const place = $("#place").value.trim();
+  if (place.length < 3) { $("#place").focus(); return; }
+  await edit({ place }); pinned(`Saved location: ${place}`);
+};
+
+// ---------- recent reports (this device only) ----------
+const recentKey = () => (window.AG_DEMO ? "ag.recent.demo" : "ag.recent");
+function remember(r, verdict) {
+  const list = store.get(recentKey(), []);
+  const i = list.findIndex((x) => x.id === r.id);
+  const item = { id: r.id, score: r.score, n: r.findings.length, t: Date.now(), verdict: verdict ?? list[i]?.verdict ?? null };
+  if (i >= 0) list[i] = item; else list.unshift(item);
+  store.set(recentKey(), list.slice(0, 10));
+  renderRecent();
+}
+function renderRecent() {
+  const list = store.get(recentKey(), []);
+  show("#recentCard", list.length > 0);
+  const V = { confirmed: "verified", rejected: "marked wrong", missed: "missed barrier" };
+  $("#recent").replaceChildren(...list.map((x) => el("li", {},
+    el("img", { src: `/media/reports/${x.id}_o.jpg`, alt: "", loading: "lazy" }),
+    el("div", { class: "meta" }, x.n ? `${x.n} finding${x.n > 1 ? "s" : ""} · priority ${x.score}` : "No findings",
+      el("span", {}, `${new Date(x.t).toLocaleString()}${x.verdict ? " · " + V[x.verdict] : ""}`)))));
+}
+renderRecent();
+demoReady.then(renderRecent);  // demo users see only this demo's reports
+
+// ---------- views: Report | Map ----------
+function showView(v) {
+  $("#tabReport").setAttribute("aria-selected", v === "report");
+  $("#tabMap").setAttribute("aria-selected", v === "map");
+  show("#reportView", v === "report"); show("#mapView", v === "map");
+  if (v === "map") openMap();
+}
+$("#tabReport").onclick = () => showView("report");
+$("#tabMap").onclick = () => showView("map");
+if (store.get("ag.intro", false)) show("#views");
+$("#introOk").addEventListener("click", () => show("#views"));
+
+const FLAG_TEXT = {
+  sidewalk_obstruction: "Sidewalk obstruction: a vehicle or bike is standing on the sidewalk.",
+  pedestrian_in_roadway: "Pedestrian in roadway: someone is walking in the street.",
+  no_visible_sidewalk: "No visible sidewalk on this built-up street.",
+};
+const VERDICT_TEXT = { confirmed: "Verified by resident", rejected: "Disputed by resident", missed: "Resident reports a missed barrier" };
+let mmap = null, layer = null, meMarker = null, points = [];
+
+// ---------- voice (ElevenLabs, generated and cached on the server) ----------
+let VOICE_ON_SERVER = false, guiding = false, watchId = null;
+const spoken = new Set();            // announce each nearby point once per session
+const voice = new Audio();
+voice.preload = "auto";
+_fetch("/api/info").then((r) => (r.ok ? r.json() : {})).then((i) => {
+  VOICE_ON_SERVER = !!i.voice;
+  $("#voiceTools").hidden = !VOICE_ON_SERVER;
+}).catch(() => {});
+const speechUrl = (p) => `/api/speech/${p.src === "resident" ? "report" : "map"}/${p.id}.mp3`;
+function speak(p) {
+  if (!VOICE_ON_SERVER) return;
+  voice.src = speechUrl(p);
+  voice.play().catch(() => { $("#locStatus").textContent = "Tap 🔊 Listen to hear this report."; });
+}
+function silentWav() {  // 0.1 s of silence: playing it inside a tap unlocks audio on iOS
+  const n = 800, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => [...t].forEach((c, i) => (b[o + i] = c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true);
+  v.setUint16(34, 8, true); w(36, "data"); v.setUint32(40, n, true); b.fill(128, 44);
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+}
+const GUIDE_RADIUS = 60;  // metres
+function onMove(pos) {
+  const me = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
+  if (mmap) showMe(me);
+  if (!voice.paused && !voice.ended) return;  // let the current announcement finish
+  const near = points.filter((p) => (p.score > 0 || p.src === "resident") && !spoken.has(p.id))
+    .map((p) => [metres(me, p), p]).filter(([d]) => d <= GUIDE_RADIUS).sort((a, b) => a[0] - b[0]);
+  if (!near.length) return;
+  const [d, p] = near[0];
+  spoken.add(p.id);
+  $("#locStatus").textContent = `🔊 ${Math.round(d)} m away: priority ${p.score}${p.src === "resident" ? " (resident report)" : ""}.`;
+  detail(p, false);
+  speak(p);
+}
+
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  const css = document.createElement("link");
+  css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+  document.head.append(css);
+  return new Promise((ok, fail) => {
+    const js = document.createElement("script");
+    js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = ok; js.onerror = fail;
+    document.head.append(js);
+  });
+}
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+async function openMap() {
+  if (mmap) { mmap.invalidateSize(); await refreshResidents(); return; }
+  try { await loadLeaflet(); } catch { $("#mdetail").replaceChildren(el("p", {}, "Couldn't load the map. Check your connection.")); return; }
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  mmap = L.map("mmap", { zoomControl: true, preferCanvas: true });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19,
+    className: dark ? "tiles-dark" : "",
+  }).addTo(mmap);
+  layer = L.layerGroup().addTo(mmap);
+  $("#mlegend").replaceChildren(...LEVELS.slice().reverse().map(([m, k, label]) =>
+    el("span", {}, el("i", { style: `background:var(--${k})` }), label)),
+    el("span", {}, el("i", { style: "background:transparent;box-shadow:inset 0 0 0 2.5px var(--accent)" }), "Resident report"));
+  const dash = await fetch("/api/map").then((r) => r.ok ? r.json() : { features: [] }).catch(() => ({ features: [] }));
+  points = dash.features.filter((f) => f.score > 0).map((f) => ({ ...f, src: "dashcam", media: "/media/map/" }));
+  await refreshResidents(true);
+}
+
+async function refreshResidents(first = false) {
+  const reps = await fetch("/api/reports").then((r) => r.ok ? r.json() : []).catch(() => []);
+  const mine = new Set(store.get(recentKey(), []).map((x) => x.id));
+  points = points.filter((p) => p.src !== "resident").concat(reps.map((r) => ({
+    id: r.id, lat: r.lat, lon: r.lon, score: r.score, flags: r.flags, verdict: r.verdict, place: r.place,
+    created: r.created, src: "resident", mine: mine.has(r.id), media: "/media/reports/" })));
+  drawPoints();
+  if (first) {
+    const mineCoords = points.filter((p) => p.mine);
+    const pos = await getPositionIfAllowed();
+    if (pos) mmap.setView([pos.lat, pos.lon], 15), showMe(pos);
+    else if (mineCoords.length) mmap.setView([mineCoords[0].lat, mineCoords[0].lon], 15);
+    else mmap.fitBounds(L.latLngBounds(points.filter((p) => p.lon > -75 && p.lon < -73).map((p) => [p.lat, p.lon])).pad(0.05));
+  }
+}
+
+function drawPoints() {
+  layer.clearLayers();
+  const ring = cssVar("--surface"), accent = cssVar("--accent");
+  const only = $("#onlyMine").checked;
+  const shown = points.filter((p) => !only || p.mine);
+  for (const p of shown.filter((p) => p.src !== "resident").sort((a, b) => a.score - b.score)) {
+    L.circleMarker([p.lat, p.lon], { radius: 7, weight: 2, color: ring,
+      fillColor: cssVar("--" + level(p.score)[1]), fillOpacity: 0.95 }).on("click", () => detail(p)).addTo(layer);
+  }
+  // resident reports at the same spot (phones often return an identical approximate fix) share one marker
+  for (const group of groupBySpot(shown.filter((p) => p.src === "resident"))) {
+    const top = group.reduce((a, b) => (b.score > a.score ? b : a));
+    const fill = cssVar("--" + level(top.score)[1]);
+    const m = group.length === 1
+      ? L.circleMarker([top.lat, top.lon], { radius: 10, weight: 3.5, color: accent, fillColor: fill, fillOpacity: 0.95 })
+      : L.marker([top.lat, top.lon], { icon: L.divIcon({ className: "", iconSize: [30, 30],
+          html: `<div class="stack" style="background:${fill}">${group.length}</div>` }) });
+    m.on("click", () => group.length === 1 ? detail(group[0]) : detailMany(group)).addTo(layer);
+  }
+}
+function groupBySpot(list) {
+  const g = new Map();
+  for (const p of list) {
+    const k = `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push(p);
+  }
+  return [...g.values()].map((x) => x.sort((a, b) => b.created - a.created));
+}
+function detailMany(group) {
+  $("#mdetail").replaceChildren(
+    el("h2", { style: "font-size:18px" }, `${group.length} reports at this spot`),
+    el("p", { class: "muted small", style: "margin:0" }, "Newest first. Tap one to see it in full."),
+    el("ul", { class: "here" }, group.map((p) => {
+      const li = el("li", {},
+        el("img", { src: `${p.media}${p.id}_o.jpg`, alt: "", loading: "lazy" }),
+        el("div", { class: "small" },
+          el("b", {}, `Priority ${p.score} · ${level(p.score)[2]}`),
+          el("div", { class: "muted" }, `${p.mine ? "Your report" : "Resident report"} · ${new Date(p.created * 1000).toLocaleString()}`),
+          el("div", {}, Object.keys(FLAG_TEXT).filter((f) => p.flags[f]).map((f) => FLAG_TEXT[f].split(":")[0]).join(", ") || "No barrier found"),
+          p.verdict ? el("div", { class: "done" }, VERDICT_TEXT[p.verdict]) : ""));
+      li.onclick = () => detail(p);
+      return li;
+    })));
+  $("#mdetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+$("#onlyMine").addEventListener("change", drawPoints);
+
+function detail(p, autoplay = true) {
+  const [, k, label] = level(p.score);
+  const flags = Object.keys(FLAG_TEXT).filter((f) => p.flags[f]);
+  const items = flags.length ? flags.map((f) => el("li", { class: FLAG_CLS[f] }, FLAG_TEXT[f]))
+    : [el("li", {}, p.verdict === "missed" ? "The model found nothing, but the resident says there is a barrier here." : "No barrier found.")];
+  const meta = p.src === "resident"
+    ? `${p.mine ? "Your report" : "Resident report"} · ${new Date(p.created * 1000).toLocaleString()}${p.place ? " · " + p.place : ""}`
+    : "Dashcam audit";
+  $("#mdetail").replaceChildren(
+    el("img", { src: `${p.media}${p.id}_o.jpg`, alt: "Photo with SAGA's overlay (people and plates blurred)" }),
+    el("div", { class: "score", style: "margin-top:12px" }, el("span", { class: "num", style: "font-size:34px" }, p.score), el("span", { class: "muted" }, "/ 100")),
+    el("span", { class: "lvl" }, el("i", { style: `background:var(--${k})` }), label),
+    ...(VOICE_ON_SERVER ? [(() => { const b = el("button", { style: "width:auto;margin-left:8px;min-height:36px;padding:6px 12px;font-size:14px" }, "🔊 Listen"); b.onclick = () => speak(p); return b; })()] : []),
+    ...(p.verdict ? [el("p", { class: "done", style: "margin:10px 0 0" }, VERDICT_TEXT[p.verdict])] : []),
+    el("ul", { class: "findings" }, items),
+    el("p", { class: "muted small", style: "margin-top:10px" }, meta));
+  $("#mdetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (guiding && autoplay) speak(p);  // with guidance on, a tapped report is read aloud too
+}
+
+let meCircle = null;
+function showMe(pos) {
+  if (meMarker) meMarker.remove();
+  if (meCircle) meCircle.remove();
+  if (pos.acc) meCircle = L.circle([pos.lat, pos.lon], { radius: Math.min(pos.acc, 2000), weight: 1, color: "#2a78d6", fillOpacity: 0.12, interactive: false }).addTo(mmap);
+  meMarker = L.circleMarker([pos.lat, pos.lon], { radius: 8, weight: 3, color: "#fff", fillColor: "#2a78d6", fillOpacity: 1 })
+    .bindTooltip("You are here").addTo(mmap).openTooltip();
+}
+async function getPositionIfAllowed() {
+  try {
+    const st = navigator.permissions ? (await navigator.permissions.query({ name: "geolocation" })).state : "prompt";
+    return st === "granted" ? await getPosition(6000) : null;
+  } catch { return null; }
+}
+const CITIES = {
+  nyc: (p) => p.lon > -75 && p.lon < -73,
+  sf: (p) => p.lon < -121,
+};
+function pressJump(id) {
+  document.querySelectorAll(".maptools [aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.city === id || (id === "me" && b.id === "locateMe")));
+}
+document.querySelectorAll(".maptools .city").forEach((b) => b.onclick = () => {
+  const inCity = points.filter(CITIES[b.dataset.city]);
+  if (!mmap || !inCity.length) return;
+  mmap.fitBounds(L.latLngBounds(inCity.map((p) => [p.lat, p.lon])).pad(0.05));
+  pressJump(b.dataset.city);
+});
+// Near me: precise GPS first, then a quicker coarse fix; always say what happened, right under the buttons.
+function locate() {
+  const once = (opts) => new Promise((ok) => navigator.geolocation.getCurrentPosition(
+    (p) => ok({ pos: { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy } }),
+    (e) => ok({ err: e.code }), opts));
+  return once({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 })
+    .then((r) => r.pos || r.err === 1 ? r : once({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }));
+}
+function metres(a, b) {
+  const R = 6371000, toR = Math.PI / 180, dLat = (b.lat - a.lat) * toR, dLon = (b.lon - a.lon) * toR;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+$("#locateMe").onclick = async () => {
+  const btn = $("#locateMe"), status = $("#locStatus");
+  if (!("geolocation" in navigator)) { status.textContent = "This browser can't share location."; return; }
+  btn.disabled = true; btn.textContent = "Locating…"; status.textContent = "";
+  const r = await locate();
+  btn.disabled = false; btn.textContent = "📍 Near me";
+  if (!r.pos) {
+    status.textContent = r.err === 1
+      ? "Location is blocked for SAGA. On iPhone: Settings › Privacy & Security › Location Services › Safari Websites › While Using, then try again."
+      : "Couldn't get your location (no GPS signal). Step outside or try again in a moment.";
+    setLocPill(false);
+    return;
+  }
+  setLocPill(true);
+  const pos = r.pos;
+  mmap.setView([pos.lat, pos.lon], 16, { animate: true });
+  showMe(pos);
+  pressJump("me");
+  const near = points.filter((p) => metres(pos, p) <= 1000).length;
+  status.textContent = `You're here (±${Math.round(pos.acc)} m). ${near ? `${near} report${near > 1 ? "s" : ""} within 1 km.` : "No reports within 1 km yet. Be the first."}`;
+};
+
+$("#guide").onclick = () => {
+  guiding = !guiding;
+  $("#guide").setAttribute("aria-pressed", guiding);
+  $("#guide").textContent = `🔊 Voice guidance: ${guiding ? "on" : "off"}`;
+  if (guiding) {
+    voice.src = silentWav(); voice.play().catch(() => {});  // unlock audio inside this tap
+    $("#locStatus").textContent = `Voice guidance on: SAGA will read out reports within ${GUIDE_RADIUS} m of you. Keep the app open.`;
+    watchId = navigator.geolocation.watchPosition(onMove, (e) => {
+      $("#locStatus").textContent = e.code === 1 ? "Voice guidance needs location. Allow it in Settings › Privacy & Security › Location Services." : "Waiting for a GPS signal…";
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  } else {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; voice.pause(); $("#locStatus").textContent = "Voice guidance off.";
+  }
+};
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/m/sw.js", { scope: "/m/" }).catch(() => {});
+</script>
+</body>
+</html>

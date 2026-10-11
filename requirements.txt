@@ -1,0 +1,15 @@
+# Local development (Python 3.12). Server installs: deploy/requirements-server.txt + torch.
+torch
+torchvision
+transformers
+safetensors
+fastapi
+uvicorn[standard]
+python-multipart
+pillow
+pillow-heif
+numpy
+scipy
+tqdm
+pytest
+pyflakes

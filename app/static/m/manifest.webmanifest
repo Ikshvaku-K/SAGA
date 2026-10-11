@@ -1,0 +1,15 @@
+{
+  "name": "SAGA: Street Accessibility and Guidance Audit",
+  "short_name": "SAGA",
+  "description": "Photograph a blocked or missing sidewalk and get an instant accessibility audit.",
+  "start_url": "/m/",
+  "scope": "/m/",
+  "display": "standalone",
+  "background_color": "#f9f9f7",
+  "theme_color": "#2a78d6",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

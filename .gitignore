@@ -1,0 +1,51 @@
+# ---------- secrets (never commit) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# resident photos, report database and hashing salt (personal data)
+results/reports/
+**/.salt
+
+# ---------- data and model weights (too large / licensed separately) ----------
+# BDD100K images + labels: download from bdd-data.berkeley.edu (see README).
+# The fixed split and the map's GPS index are small and needed to reproduce results.
+data/*
+!data/splits.json
+!data/gps_test.json
+# training checkpoints are 100-200 MB each, over GitHub's 100 MB file limit
+checkpoints/
+# deployed model weights; the run's metrics and log are kept
+remote_runs/*/best/
+remote_runs/*/train.out
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
+# ---------- generated outputs (rebuilt by scripts) ----------
+results/map/
+results/gallery/
+results/speech/
+results/pred_*/
+*.mp3
+
+# ---------- environments, caches, editor/OS junk ----------
+.venv/
+venv/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+scratch/
+.DS_Store
+.Rhistory
+.idea/
+.vscode/
+*.log
+logs/
+
+# ---------- private documents (not for the public repo) ----------
+DEVPOST.md

@@ -1,0 +1,9 @@
+# Training/eval only (the GPU box never runs the platform). Default PyPI wheels ship CUDA on Linux.
+torch
+torchvision
+transformers
+safetensors
+pillow
+numpy
+scipy
+tqdm

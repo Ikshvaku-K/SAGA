@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAGA: Street Accessibility and Guidance Audit</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f2f1ed;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6; --accent-ink: #ffffff;
+  --series-1: #2a78d6; --series-2: #eb6834;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --f-obs: #eda100; --f-ped: #e34948; --f-side: #4a3aa7;
+  --up: #006300;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --series-1: #3987e5; --series-2: #d95926;
+    --f-obs: #c98500; --f-ped: #e66767; --f-side: #9085e9; --up: #0ca30c;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --series-1: #3987e5; --series-2: #d95926;
+  --f-obs: #c98500; --f-ped: #e66767; --f-side: #9085e9; --up: #0ca30c;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+header { border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1000; }
+.top { display: flex; align-items: center; gap: 16px; padding: 12px 0 0; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 30px; height: 30px; flex: none; }
+.brand h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+.brand p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.badge { margin-left: auto; font-size: 12px; color: var(--ink-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.badge b { color: var(--ink); font-weight: 600; }
+nav { display: flex; gap: 4px; margin-top: 10px; overflow-x: auto; }
+nav button { appearance: none; border: 0; background: none; color: var(--ink-2); font: inherit; font-weight: 500; padding: 10px 12px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav button:hover { color: var(--ink); }
+main { padding: 24px 0 64px; }
+section[hidden] { display: none; }
+h2 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h3 { font-size: 16px; margin: 0 0 10px; }
+.lede { color: var(--ink-2); margin: 0 0 20px; max-width: 760px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.btn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg .btn { border: 0; border-radius: 0; }
+
+/* Audit tab */
+.drop { border: 1.5px dashed var(--axis); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; background: var(--surface); transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--surface-2); }
+.drop strong { display: block; font-size: 16px; margin-bottom: 2px; }
+.samples { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.samples button { padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: none; aspect-ratio: 16/9; }
+.samples img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.samples button:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.viewer { position: relative; border-radius: 8px; overflow: hidden; background: var(--surface-2); aspect-ratio: 16/9; display: grid; place-items: center; }
+.viewer img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.viewer .empty { color: var(--muted); padding: 24px; text-align: center; }
+.viewer .busy { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--surface) 70%, transparent); font-weight: 500; }
+.viewbar { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; flex-wrap: wrap; }
+.score { display: flex; align-items: baseline; gap: 10px; }
+.score .num { font-size: 44px; font-weight: 650; line-height: 1; letter-spacing: -0.02em; }
+.score .of { color: var(--muted); }
+.lvl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); }
+.lvl i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.findings { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+.findings li { border: 1px solid var(--border); border-left: 4px solid var(--c); border-radius: 8px; padding: 10px 12px; background: var(--surface); }
+.findings li b { display: block; }
+.findings li span { color: var(--ink-2); font-size: 13px; }
+.findings li.ok { --c: var(--good); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+.f-obs { --c: var(--f-obs); } .f-ped { --c: var(--f-ped); } .f-side { --c: var(--f-side); }
+.cov { display: grid; grid-template-columns: 74px 1fr 48px; gap: 6px 10px; align-items: center; font-size: 13px; margin-top: 8px; }
+.cov .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.cov .bar i { display: block; height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+.cov .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+details.legend summary { cursor: pointer; color: var(--ink-2); font-size: 13px; margin-top: 14px; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px 10px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.swatches span { display: flex; align-items: center; gap: 6px; }
+.swatches i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* Map tab */
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.chip.res { --c: var(--accent); }
+.stack { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; font: 700 13px/1 system-ui, sans-serif; border: 3.5px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.chip.res::before { border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 2.5px var(--accent); }
+.verdict { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.stat .k { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.stat .v { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.toolbar { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+#map { height: 540px; border-radius: var(--radius); border: 1px solid var(--border); z-index: 1; }
+@media (max-width: 900px) { #map { height: 380px; } }
+.maplegend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.maplegend span { display: inline-flex; align-items: center; gap: 5px; }
+.maplegend i { width: 10px; height: 10px; border-radius: 50%; }
+.detail img { width: 100%; border-radius: 8px; display: block; aspect-ratio: 16/9; object-fit: cover; background: var(--surface-2); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+th { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--surface-2); }
+.tablewrap { overflow-x: auto; }
+
+/* Report tab */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.delta { font-size: 13px; font-weight: 600; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--critical); }
+.legend-row { display: flex; gap: 14px; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+.legend-row span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-row i { width: 12px; height: 8px; border-radius: 2px; }
+.iou { display: grid; grid-template-columns: 112px 1fr; gap: 3px 12px; align-items: center; font-size: 13px; }
+.iou .name { color: var(--ink-2); text-align: right; }
+.iou .name.key { color: var(--ink); font-weight: 600; }
+.iou .bars { display: grid; gap: 2px; padding: 3px 0; border-left: 1px solid var(--axis); }
+.iou .b { height: 8px; border-radius: 0 4px 4px 0; position: relative; outline: none; }
+.iou .b.base { background: var(--series-2); }
+.iou .b.ft { background: var(--series-1); }
+.iou .b:hover, .iou .b:focus { filter: brightness(1.15); }
+.iou .b em { position: absolute; left: calc(100% + 6px); top: -4px; font-style: normal; font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.axis-ticks { display: grid; grid-template-columns: 112px 1fr; gap: 12px; font-size: 11px; color: var(--muted); }
+.axis-ticks div { display: flex; justify-content: space-between; }
+.tip { position: fixed; pointer-events: none; z-index: 2000; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,.15); border-radius: 8px; padding: 6px 10px; font-size: 12px; display: none; }
+.tip b { font-size: 14px; display: block; }
+.tip .row { display: flex; align-items: center; gap: 6px; }
+.tip .row i { width: 12px; height: 2px; }
+svg.line { width: 100%; height: 190px; display: block; }
+.gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .gallery { grid-template-columns: 1fr; } }
+.gallery figure { margin: 0; }
+.gallery img { width: 100%; border-radius: 6px; display: block; aspect-ratio: 16/9; object-fit: cover; background: var(--surface-2); }
+.gallery figcaption { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.stack { display: grid; gap: 16px; }
+.note { border-left: 3px solid var(--axis); padding: 4px 0 4px 12px; color: var(--ink-2); font-size: 14px; }
+ul.tight { margin: 6px 0 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: s; }
+@media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } }
+.flow div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 14px; }
+.flow div::before { counter-increment: s; content: counter(s); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.flow b { display: block; }
+code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.leaflet-container { background: var(--surface-2); font: inherit; }
+/* phones: only Audit + City map (the report and method pages are desktop views) */
+.mobile nav [data-tab="report"], .mobile nav [data-tab="method"], .mobile #tab-report, .mobile #tab-method { display: none !important; }
+.tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M6 23h7l6-8h7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="9" r="2.6" fill="#fff"/></svg>
+        <div><h1>SAGA</h1><p>Street Accessibility and Guidance Audit</p></div>
+      </div>
+      <a class="badge" href="/m/" style="text-decoration:none" id="toMobile">📱 Mobile version</a>
+      <div class="badge" id="badge" style="margin-left:0">Loading model…</div>
+      <a class="badge" href="#" onclick="logout(); return false;" style="margin-left:0; text-decoration:none">Log out</a>
+    </div>
+    <nav role="tablist">
+      <button role="tab" data-tab="audit" aria-selected="true">Audit a photo</button>
+      <button role="tab" data-tab="map" aria-selected="false">City map</button>
+      <button role="tab" data-tab="report" aria-selected="false">Model report</button>
+      <button role="tab" data-tab="method" aria-selected="false">Method &amp; limits</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- AUDIT -->
+  <section id="tab-audit">
+    <h2>Audit a street photo</h2>
+    <p class="lede">Upload a street-level photo (dashcam, phone, or Street View screenshot). The model labels every pixel, then the audit checks what each car, bike and person is standing on.</p>
+    <div class="grid2">
+      <div>
+        <div class="viewer" id="viewer"><div class="empty">Your audited photo appears here.</div></div>
+        <div class="viewbar">
+          <div class="seg" role="group" aria-label="View">
+            <button class="btn" id="vOverlay" aria-pressed="true">Overlay</button>
+            <button class="btn" id="vPhoto" aria-pressed="false">Photo</button>
+          </div>
+          <span class="small muted" id="timing"></span>
+        </div>
+        <details class="legend"><summary>Colour legend (19 classes)</summary><div class="swatches" id="swatches"></div></details>
+      </div>
+      <div class="stack">
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="image/*" hidden>
+          <strong>Drop a photo or click to choose</strong>
+          <span class="small muted">JPG or PNG · processed locally on this machine</span>
+        </label>
+        <div>
+          <div class="small muted">Or try a held-out test image</div>
+          <div class="samples" id="samples"></div>
+        </div>
+        <div class="card" id="result" hidden>
+          <div class="score"><span class="num" id="scoreNum">0</span><span class="of">/ 100 priority</span></div>
+          <div id="scoreLvl" style="margin-top:6px"></div>
+          <ul class="findings" id="findings"></ul>
+          <h3 style="margin-top:16px">Scene coverage</h3>
+          <div class="cov" id="coverage"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section id="tab-map" hidden>
+    <h2>City accessibility map</h2>
+    <p class="lede" id="mapLede">Every GPS-tagged image from the BDD100K test split, audited by the model. None of these images was used in training.</p>
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="City" id="cities"></div>
+      <label class="f-obs"><input type="checkbox" data-flag="sidewalk_obstruction" checked> <span class="chip f-obs">Sidewalk obstruction</span></label>
+      <label><input type="checkbox" data-flag="pedestrian_in_roadway" checked> <span class="chip f-ped">Pedestrian in roadway</span></label>
+      <label><input type="checkbox" data-flag="no_visible_sidewalk" checked> <span class="chip f-side">No visible sidewalk</span></label>
+      <label><input type="checkbox" id="showClean"> Show locations with no findings</label>
+      <label><input type="checkbox" id="showResidents" checked> <span class="chip res">Resident reports</span></label>
+    </div>
+    <div class="grid2">
+      <div>
+        <div id="map"></div>
+        <div class="maplegend" id="mapLegend"></div>
+      </div>
+      <div class="card detail" id="detail"><p class="muted" style="margin:0">Select a point on the map or a row in the priority list.</p></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Repair priority list</h3>
+      <p class="small muted" style="margin:-6px 0 8px">Top 25 locations by priority score in the current view and filters.</p>
+      <div class="tablewrap"><table><thead><tr><th class="n">#</th><th>Location</th><th>Findings</th><th class="n">Score</th></tr></thead><tbody id="prio"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="tab-report" hidden>
+    <h2>Model report</h2>
+    <p class="lede">Everything below is measured on the 1,000 official BDD100K validation images, which were never used for training or checkpoint selection.</p>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Per-class IoU on the test set</h3>
+        <div class="legend-row"><span><i style="background:var(--series-2)"></i>Cityscapes baseline</span><span><i style="background:var(--series-1)"></i>Fine-tuned on BDD100K</span></div>
+        <div class="iou" id="iou"></div>
+        <div class="axis-ticks"><span></span><div><span>0</span><span>0.25</span><span>0.5</span><span>0.75</span><span>1.0</span></div></div>
+      </div>
+      <div class="stack">
+        <div class="card">
+          <h3>Audit agreement with human labels</h3>
+          <p class="small muted" style="margin:-6px 0 8px">Flags from the model's masks vs. flags from the annotators' masks, per image.</p>
+          <div class="tablewrap"><table id="auditTable"></table></div>
+        </div>
+        <div class="card">
+          <h3>Holdout mIoU during training</h3>
+          <svg class="line" id="curve" role="img" aria-label="Holdout mIoU by training step"></svg>
+        </div>
+        <div class="card">
+          <h3>Training loss</h3>
+          <svg class="line" id="lossCurve" role="img" aria-label="Training loss by step"></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Where the audit is right and wrong</h3>
+      <div class="seg" role="group" id="galFlags" style="margin-bottom:12px"></div>
+      <div id="gallery"></div>
+    </div>
+    <div class="card" style="margin-top:16px" id="ruleReview" hidden></div>
+    <div class="card" style="margin-top:16px" id="fieldCard"></div>
+  </section>
+
+  <!-- METHOD -->
+  <section id="tab-method" hidden>
+    <h2>Method &amp; limits</h2>
+    <p class="lede">SAGA audits infrastructure, not people. It produces a list of places a city should inspect, never a ticket.</p>
+    <div class="flow">
+      <div><b>Dashcam frame</b>BDD100K, 1280×720, day &amp; night, clear to snow.</div>
+      <div><b>Semantic segmentation</b>SegFormer-B2, Cityscapes-pretrained, fine-tuned on 6,500 BDD images.</div>
+      <div><b>Ground-contact audit</b>For each object: what surface is directly beneath it and beside it?</div>
+      <div><b>Priority map</b>Findings are geolocated with the clip's GPS and ranked for repair.</div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Report from a phone</h3>
+      <p style="margin:0 0 8px">Residents open the SAGA mobile app, take a photo, and get the audit back in plain text first (so it works with VoiceOver), then the overlay, then <b>"Did I get this right?"</b></p>
+      <ul class="tight">
+        <li><b>👍</b> on a finding: <em>confirmed</em> (a true positive). <b>👎</b>: <em>rejected</em> (a false alarm). <b>👎</b> on "nothing found": <em>missed</em> (a barrier the model did not see).</li>
+        <li>These answers become field labels. They measure real-world precision per flag and pick the photos most worth annotating for the next training run.</li>
+        <li>Location comes from the phone's GPS, or a cross street the resident types.</li>
+        <li>Privacy: people and the plate band of every vehicle are blurred before the photo is saved; no account, name or phone number is stored.</li>
+      </ul>
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="card">
+        <h3>Audit rules</h3>
+        <ul class="tight">
+          <li><span class="chip f-obs">Sidewalk obstruction</span> a car, truck, bus, motorcycle or bicycle whose contact strip (6 px below its lowest edge) is ≥ 60% sidewalk <em>and</em> which has ≥ 40% sidewalk beside its lowest rows.</li>
+          <li><span class="chip f-ped">Pedestrian in roadway</span> a person whose contact strip is ≥ 60% road and who has road beside their feet.</li>
+          <li><span class="chip f-side">No visible sidewalk</span> ≥ 5% building, ≥ 10% road and ≤ 0.5% sidewalk in the frame, with the curb zones visible (≤ 25% parked vehicles at the left/right edge) and no highway barriers (≤ 3% wall + fence). Without the last two checks, 183 of 1,000 test frames fired, mostly NYC streets where parked cars hide the sidewalk.</li>
+          <li>Only nearby objects count (minimum height ≈ 70 px at full resolution), and objects cut off by the frame edge are skipped. Both rules were added after visual review showed perspective errors on distant cars.</li>
+          <li>Priority score: 40 for no visible sidewalk, 25 per obstruction (max 50), 15 per pedestrian in roadway (max 30), +15 when pedestrians share a street with no visible sidewalk. This score is a heuristic for ranking, not a validated measure.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Known limits</h3>
+        <ul class="tight">
+          <li><b>Rules are checked against labels, not reality.</b> Audit agreement measures how well the model reproduces the audit that the human masks would give. It does not prove each flag is a real ADA violation.</li>
+          <li><b>No crosswalk or curb-ramp class.</b> People crossing at a crosswalk also count as "in roadway"; curb ramps need a different dataset (Project Sidewalk + Mapillary).</li>
+          <li><b>One frame is not a street.</b> "No visible sidewalk" can mean hidden by parked cars. Aggregating many drives per block would fix this.</li>
+          <li><b>Privacy.</b> BDD images show faces and plates. A public deployment must blur both before display.</li>
+          <li><b>Licence.</b> BDD100K permits educational, research and non-profit use.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Phones never see the web version: go straight to the mobile app (the server redirects too).
+const IS_PHONE = /iPhone|iPod|Android.+Mobile|Windows Phone/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 0 && matchMedia("(max-width: 760px)").matches);
+if (IS_PHONE) location.replace("/m/" + location.hash);
+const IS_MOBILE = IS_PHONE || matchMedia("(max-width: 760px)").matches;  // narrow laptop windows: compact tabs
+if (IS_MOBILE) document.documentElement.classList.add("mobile");
+// Session expired or missing: any 401 from the server sends the user back to the gate.
+const _fetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _fetch(...args);
+  if (res.status === 401) location.href = "/gate?next=" + encodeURIComponent(location.pathname + location.hash);
+  return res;
+};
+async function logout() {
+  if (window.AG_DEMO) { try { localStorage.removeItem("ag.recent.demo"); } catch {} }
+  await _fetch("/api/auth/logout", { method: "POST" }); location.href = "/gate";
+}
+// Demo sessions: say whose demo it is and how long is left, and sign out at 0:00.
+window.AG_DEMO = false;
+const demoReady = _fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((me) => {
+  if (!me || me.role !== "demo") return;
+  window.AG_DEMO = true;
+  const bar = document.createElement("div");
+  bar.setAttribute("role", "status");
+  bar.style.cssText = "position:sticky;top:0;z-index:2000;background:#2a78d6;color:#fff;font:600 14px/1.3 -apple-system,system-ui,sans-serif;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));text-align:center";
+  document.body.prepend(bar);
+  const end = async () => {
+    try { localStorage.removeItem("ag.recent.demo"); } catch {}
+    await _fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    location.href = "/gate?expired=1";
+  };
+  const tick = () => {
+    const left = Math.max(0, Math.round(me.expires - Date.now() / 1000));
+    bar.textContent = `Demo · Hi ${me.name} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left · nothing you upload is kept`;
+    if (left <= 0) end();
+  };
+  tick(); setInterval(tick, 1000);
+  window.demoLogout = end;
+  return me;
+});
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function h(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+const FLAGS = {
+  sidewalk_obstruction: { label: "Sidewalk obstruction", cls: "f-obs",
+    desc: "A vehicle or bike is standing on the sidewalk, narrowing or blocking the path for wheelchair, walker and stroller users." },
+  pedestrian_in_roadway: { label: "Pedestrian in roadway", cls: "f-ped",
+    desc: "A person is standing or walking on the road surface. Includes people crossing, since there is no crosswalk class." },
+  no_visible_sidewalk: { label: "No visible sidewalk", cls: "f-side",
+    desc: "Built-up street with road but no visible sidewalk in this frame. Missing, or hidden behind parked cars." },
+};
+const LEVELS = [
+  { min: 70, k: "critical", label: "High priority" },
+  { min: 40, k: "serious", label: "Medium priority" },
+  { min: 1, k: "warning", label: "Low priority" },
+  { min: 0, k: "good", label: "No findings" },
+];
+const level = s => LEVELS.find(l => s >= l.min);
+const lvlChip = s => { const l = level(s); return h("span", { class: "lvl" }, h("i", { style: `background:var(--${l.k})` }), l.label); };
+const flagChips = flags => h("div", { class: "chips" }, Object.keys(FLAGS).filter(f => flags[f]).map(f => h("span", { class: `chip ${FLAGS[f].cls}` }, FLAGS[f].label)));
+const pct = v => (v * 100).toFixed(1) + "%";
+const tip = $("#tip");
+function showTip(ev, nodes) { tip.replaceChildren(...nodes); tip.style.display = "block"; const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8); tip.style.left = x + "px"; tip.style.top = (ev.clientY + 14) + "px"; }
+function hideTip() { tip.style.display = "none"; }
+
+// ---------- tabs ----------
+const loaded = {};
+$$("nav button").forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
+function openTab(t) {
+  $$("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+  $$("main > section").forEach(s => s.hidden = s.id !== "tab-" + t);
+  if (t === "map" && !loaded.map) { loaded.map = true; initMap(); }
+  if (t === "map" && window.MAP) setTimeout(() => MAP.invalidateSize(), 50);
+  if (t === "report" && !loaded.report) { loaded.report = true; loadReport(); }
+  history.replaceState(null, "", "#" + t);
+}
+
+// ---------- info ----------
+let INFO;
+fetch("/api/info").then(r => r.json()).then(d => {
+  INFO = d;
+  $("#badge").replaceChildren("Model: ", h("b", {}, d.model_label));
+  $("#swatches").replaceChildren(...d.classes.map((c, i) => h("span", {}, h("i", { style: `background:rgb(${d.palette[i].join(",")})` }), c)));
+});
+
+// ---------- audit tab ----------
+let last = null, view = "overlay";
+const fileIn = $("#file"), drop = $("#drop");
+fileIn.addEventListener("change", () => fileIn.files[0] && analyze(fileIn.files[0]));
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => ev.dataTransfer.files[0] && analyze(ev.dataTransfer.files[0]));
+$("#vOverlay").onclick = () => setView("overlay");
+$("#vPhoto").onclick = () => setView("photo");
+function setView(v) { view = v; $("#vOverlay").setAttribute("aria-pressed", v === "overlay"); $("#vPhoto").setAttribute("aria-pressed", v === "photo"); if (last) $("#viewer img").src = last[v]; }
+
+fetch("/api/samples").then(r => r.json()).then(list => {
+  $("#samples").replaceChildren(...list.map(n => h("button", { title: "Audit this sample", onclick: async () => {
+    const b = await (await fetch("/static/samples/" + n)).blob(); analyze(new File([b], n, { type: "image/jpeg" }));
+  } }, h("img", { src: "/static/samples/" + n, alt: "Sample street scene" }))));
+});
+
+async function analyze(file) {
+  const v = $("#viewer");
+  v.append(h("div", { class: "busy" }, "Segmenting and auditing…"));
+  const fd = new FormData(); fd.append("file", file);
+  try {
+    const r = await fetch("/api/analyze?tta=true", { method: "POST", body: fd });
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    last = await r.json();
+    renderResult(last);
+  } catch (e) {
+    v.replaceChildren(h("div", { class: "empty" }, "Could not audit that image: " + e.message));
+  } finally { $(".busy", v)?.remove(); }
+}
+
+function renderResult(d) {
+  const r = d.report;
+  if (!$("#viewer img")) $("#viewer").replaceChildren(h("img", { alt: "Audited photo" }));
+  $("#viewer img").src = d[view];
+  $("#timing").textContent = `${d.size[0]}×${d.size[1]} · ${d.ms} ms inference`;
+  $("#result").hidden = false;
+  $("#scoreNum").textContent = r.score;
+  $("#scoreLvl").replaceChildren(lvlChip(r.score));
+  const items = [];
+  if (r.flags.sidewalk_obstruction) items.push(finding("sidewalk_obstruction", r.obstructions.length, r.obstructions.map(o => o.class)));
+  if (r.flags.pedestrian_in_roadway) items.push(finding("pedestrian_in_roadway", r.pedestrians_in_road.length));
+  if (r.flags.no_visible_sidewalk) items.push(finding("no_visible_sidewalk"));
+  if (!items.length) items.push(h("li", { class: "ok" }, h("b", {}, "No accessibility issues detected"), h("span", {}, "Nothing in this frame is standing on the sidewalk, no one is in the roadway, and a sidewalk is visible.")));
+  $("#findings").replaceChildren(...items);
+  $("#coverage").replaceChildren(...Object.entries(r.coverage).flatMap(([k, v]) => [
+    h("span", {}, k), h("div", { class: "bar" }, h("i", { style: `width:${Math.min(100, v * 100 / 0.6)}%` })), h("span", { class: "v" }, pct(v))]));
+}
+function finding(f, n, what) {
+  const m = FLAGS[f];
+  const title = n ? `${m.label} × ${n}` : m.label;
+  const extra = what ? ` Detected: ${[...new Set(what)].join(", ")}.` : "";
+  return h("li", { class: m.cls }, h("b", {}, title), h("span", {}, m.desc + extra));
+}
+
+// ---------- map tab ----------
+let MAP, FEATS = [], RESIDENTS = [], LAYER, MARKERS = new Map();
+const VERDICT = {
+  confirmed: "Verified by resident", rejected: "Disputed by resident",
+  missed: "Resident reports a missed barrier", null: "Awaiting resident feedback",
+};
+const fromReport = r => ({ id: r.id, lat: r.lat, lon: r.lon, score: r.score, flags: r.flags,
+  obstructions: r.findings.obstructions, pedestrians_in_road: r.findings.pedestrians_in_road,
+  source: "resident", media: "/media/reports/", verdict: r.verdict, place: r.place, created: r.created });
+const CITIES = [
+  { name: "New York", test: f => f.lon < -73 && f.lon > -75 },
+  { name: "SF Bay Area", test: f => f.lon < -121 },
+  { name: "Other US", test: f => !(f.lon < -73 && f.lon > -75) && !(f.lon < -121) },
+];
+let city = CITIES[0];
+async function initMap() {
+  const r = await fetch("/api/map");
+  if (!r.ok) { $("#detail").replaceChildren(h("p", {}, "Map data not generated yet. Run scripts/predict_map.py.")); return; }
+  const d = await r.json();
+  FEATS = d.features.map(f => ({ ...f, source: "dashcam", media: "/media/map/" }));
+  RESIDENTS = await fetch("/api/reports").then(r => r.ok ? r.json() : []).then(l => l.map(fromReport)).catch(() => []);
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
+  MAP = L.map("map", { zoomControl: true, preferCanvas: true });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19,
+    className: dark ? "tiles-dark" : "",
+  }).addTo(MAP);
+  LAYER = L.layerGroup().addTo(MAP);
+  $("#cities").replaceChildren(...CITIES.map(c => h("button", { class: "btn", "data-city": c.name, "aria-pressed": c === city, onclick: () => { city = c; $$("#cities .btn").forEach(b => b.setAttribute("aria-pressed", b.dataset.city === c.name)); render(true); } }, `${c.name} (${FEATS.filter(c.test).length})`)));
+  $$(".toolbar input").forEach(i => i.addEventListener("change", () => render(false)));
+  $("#mapLegend").replaceChildren(...LEVELS.slice().reverse().map(l => h("span", {}, h("i", { style: `background:var(--${l.k})` }), l.label + (l.min ? ` (${l.min}+)` : ""))),
+    h("span", {}, h("i", { style: "background:transparent; box-shadow: inset 0 0 0 2.5px var(--accent)" }), "Resident report (ring)"));
+  render(true);
+}
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function visible() {
+  const on = Object.fromEntries($$(".toolbar input[data-flag]").map(i => [i.dataset.flag, i.checked]));
+  const clean = $("#showClean").checked;
+  const dash = FEATS.filter(city.test).filter(f => {
+    const any = Object.keys(FLAGS).some(k => f.flags[k]);
+    if (!any) return clean;
+    return Object.keys(FLAGS).some(k => f.flags[k] && on[k]);
+  });
+  const res = $("#showResidents").checked ? RESIDENTS.filter(city.test) : [];
+  return dash.concat(res);
+}
+function render(fit) {
+  const inCity = FEATS.filter(city.test), vis = visible();
+  const any = inCity.filter(f => f.score > 0);
+  const cnt = k => inCity.filter(f => f.flags[k]).length;
+  $("#stats").replaceChildren(
+    stat("Locations audited", inCity.length, city.name),
+    stat("With any finding", any.length, pct(any.length / Math.max(1, inCity.length))),
+    stat(h("span", { class: "chip f-obs" }, "Obstruction"), cnt("sidewalk_obstruction"), "frames"),
+    stat(h("span", { class: "chip f-ped" }, "Pedestrian in road"), cnt("pedestrian_in_roadway"), "frames"),
+    stat(h("span", { class: "chip f-side" }, "No visible sidewalk"), cnt("no_visible_sidewalk"), "frames"),
+    stat(h("span", { class: "chip res" }, "Resident reports"), RESIDENTS.filter(city.test).length,
+      `${RESIDENTS.filter(city.test).filter(r => r.verdict === "confirmed").length} verified`));
+  LAYER.clearLayers(); MARKERS.clear();
+  const ring = cssVar("--surface");
+  const stacks = new Map();  // resident reports sharing a spot -> one marker
+  for (const f of vis.filter((f) => f.source === "resident")) {
+    const k = `${f.lat.toFixed(4)},${f.lon.toFixed(4)}`;
+    if (!stacks.has(k)) stacks.set(k, []);
+    stacks.get(k).push(f);
+  }
+  for (const group of stacks.values()) {
+    group.sort((a, b) => b.created - a.created);
+    if (group.length < 2) continue;
+    const top = group.reduce((a, b) => (b.score > a.score ? b : a));
+    L.marker([top.lat, top.lon], { icon: L.divIcon({ className: "", iconSize: [30, 30],
+      html: `<div class="stack" style="background:${cssVar("--" + level(top.score).k)}">${group.length}</div>` }) })
+      .on("click", () => selectMany(group)).bindTooltip(`${group.length} resident reports`).addTo(LAYER);
+  }
+  const stacked = new Set([...stacks.values()].filter((g) => g.length > 1).flat());
+  for (const f of vis.filter((f) => !stacked.has(f)).sort((a, b) => a.score - b.score)) {
+    const res = f.source === "resident";
+    const m = L.circleMarker([f.lat, f.lon], { radius: res ? 9 : f.score >= 40 ? 7 : 5.5, color: res ? cssVar("--accent") : ring,
+      weight: res ? 3.5 : 2, fillColor: cssVar("--" + level(f.score).k), fillOpacity: 0.95 })
+      .on("click", () => select(f)).bindTooltip(`${res ? "Resident report · " : ""}Score ${f.score} · ${level(f.score).label}`);
+    m.addTo(LAYER); MARKERS.set(f.id, m);
+  }
+  if (fit && inCity.length) MAP.fitBounds(L.latLngBounds(inCity.map(f => [f.lat, f.lon])).pad(0.05));
+  const top = vis.filter(f => f.score > 0 || f.verdict === "missed")
+    .sort((a, b) => (b.verdict === "confirmed") - (a.verdict === "confirmed") || b.score - a.score).slice(0, 25);
+  $("#prio").replaceChildren(...top.map((f, i) => h("tr", { class: "click", onclick: () => { select(f); MAP.flyTo([f.lat, f.lon], 16); } },
+    h("td", { class: "n" }, i + 1), h("td", {}, f.place || `${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}`),
+    h("td", {}, h("div", { class: "chips" }, f.source === "resident" ? h("span", { class: "chip res" }, f.verdict === "confirmed" ? "Resident · verified" : "Resident") : null, ...flagChips(f.flags).children)),
+    h("td", { class: "n" }, f.score))));
+  if (!top.length) $("#prio").replaceChildren(h("tr", {}, h("td", { colspan: 4, class: "muted" }, "No findings match these filters.")));
+}
+function stat(k, v, s) { return h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v" }, v), h("div", { class: "s" }, s)); }
+const deskVoice = new Audio();
+function listenButton(f) {
+  if (!INFO?.voice) return null;
+  const b = h("button", { class: "btn", style: "margin-left:8px" }, "🔊 Listen");
+  b.onclick = () => { deskVoice.src = `/api/speech/${f.source === "resident" ? "report" : "map"}/${f.id}.mp3`; deskVoice.play().catch(() => {}); };
+  return b;
+}
+function selectMany(group) {
+  $("#detail").replaceChildren(
+    h("h3", {}, `${group.length} resident reports at this spot`),
+    h("p", { class: "small muted", style: "margin:-6px 0 8px" }, "Newest first. Click one to open it."),
+    h("ul", { class: "findings" }, group.map((f) => h("li", { class: "click", style: "cursor:pointer;display:grid;grid-template-columns:120px 1fr;gap:10px;--c:var(--accent)", onclick: () => select(f) },
+      h("img", { src: `${f.media}${f.id}_o.jpg`, alt: "", style: "width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px" }),
+      h("span", {}, h("b", {}, `Priority ${f.score} · ${level(f.score).label}`), " ",
+        `${new Date(f.created * 1000).toLocaleString()} · ${VERDICT[f.verdict] ?? VERDICT.null}`)))));
+}
+function select(f) {
+  let showOverlay = true;
+  const res = f.source === "resident";
+  const img = h("img", { src: `${f.media}${f.id}_o.jpg`, alt: res ? "Resident photo with audit overlay (people and plates blurred)" : "Audited dashcam frame" });
+  const tog = h("div", { class: "seg", style: "margin-top:8px" },
+    h("button", { class: "btn", "aria-pressed": "true", onclick: e => { img.src = `${f.media}${f.id}_o.jpg`; e.target.setAttribute("aria-pressed", true); e.target.nextSibling.setAttribute("aria-pressed", false); } }, "Overlay"),
+    h("button", { class: "btn", "aria-pressed": "false", onclick: e => { img.src = `${f.media}${f.id}.jpg`; e.target.setAttribute("aria-pressed", true); e.target.previousSibling.setAttribute("aria-pressed", false); } }, "Photo"));
+  const list = [];
+  if (f.flags.sidewalk_obstruction) list.push(finding("sidewalk_obstruction", f.obstructions.length, f.obstructions.map(o => o.class)));
+  if (f.flags.pedestrian_in_roadway) list.push(finding("pedestrian_in_roadway", f.pedestrians_in_road.length));
+  if (f.flags.no_visible_sidewalk) list.push(finding("no_visible_sidewalk"));
+  if (!list.length) list.push(f.verdict === "missed"
+    ? h("li", { class: "f-ped" }, h("b", {}, "Missed barrier"), h("span", {}, "The model found nothing, but the resident says there is a barrier here."))
+    : h("li", { class: "ok" }, h("b", {}, "No findings"), h("span", {}, "Nothing flagged in this frame.")));
+  tog.append(...[listenButton(f)].filter(Boolean));
+  $("#detail").replaceChildren(img, tog,
+    h("div", { class: "score", style: "margin-top:12px" }, h("span", { class: "num", style: "font-size:34px" }, f.score), h("span", { class: "of" }, "/ 100"), lvlChip(f.score)),
+    res ? h("div", { style: "margin:8px 0 4px" }, h("span", { class: "verdict" }, VERDICT[f.verdict] ?? VERDICT.null)) : null,
+    h("div", { class: "small muted" }, res
+      ? `Resident report · ${new Date(f.created * 1000).toLocaleString()}${f.place ? " · " + f.place : ""}`
+      : `${f.lat.toFixed(5)}, ${f.lon.toFixed(5)} · frame ${f.id}`),
+    h("ul", { class: "findings" }, list));
+  MARKERS.get(f.id)?.openTooltip();
+}
+
+// ---------- report tab ----------
+async function loadReport() {
+  const d = await (await fetch("/api/report")).json();
+  const b = d.seg.baseline, ft = d.seg.finetuned;
+  const ab = d.audit.baseline, af = d.audit.finetuned;
+  const PCT = { fmt: v => (v * 100).toFixed(1), d: v => (v * 100).toFixed(1) + " pts" };
+  const DEC = { fmt: v => v.toFixed(2), d: v => v.toFixed(2) };
+  const kpi = (label, now, before, u = PCT) => {
+    const kids = [h("div", { class: "k" }, label), h("div", { class: "v" }, now == null ? "—" : u.fmt(now))];
+    if (now != null && before != null) {
+      const dlt = now - before;
+      kids.push(h("div", { class: `delta ${dlt >= 0 ? "up" : "down"}` }, `${dlt >= 0 ? "▲ +" : "▼ −"}${u.d(Math.abs(dlt))} vs baseline ${u.fmt(before)}`));
+    } else kids.push(h("div", { class: "s" }, now == null ? "fine-tuning in progress" : "Cityscapes baseline"));
+    return h("div", { class: "stat" }, ...kids);
+  };
+  const cur = ft || b;
+  $("#kpis").replaceChildren(
+    kpi("Test mIoU (19 classes, %)", cur?.mIoU, ft ? b?.mIoU : null),
+    kpi("Sidewalk IoU (%)", cur?.iou.sidewalk, ft ? b?.iou.sidewalk : null),
+    kpi("Person IoU (%)", cur?.iou.person, ft ? b?.iou.person : null),
+    kpi("Pedestrian-in-road flag F1", (af || ab)?.flags.pedestrian_in_roadway.f1, af ? ab?.flags.pedestrian_in_roadway.f1 : null, DEC));
+
+  // per-class IoU bars
+  const key = new Set(["road", "sidewalk", "person", "car", "bicycle", "motorcycle"]);
+  const rows = [];
+  for (const c of (b || ft) ? Object.keys((b || ft).iou) : []) {
+    const bars = h("div", { class: "bars" });
+    for (const [kind, src, name] of [["base", b, "Cityscapes baseline"], ["ft", ft, "Fine-tuned"]]) {
+      if (!src) continue;
+      const v = src.iou[c];
+      const bar = h("div", { class: `b ${kind}`, tabindex: 0, style: `width:${Math.max(0.5, v * 100)}%` }, h("em", {}, v.toFixed(2)));
+      const tipNodes = () => [h("b", {}, v.toFixed(3)), h("div", { class: "row" }, h("i", { style: `background:var(--series-${kind === "ft" ? 1 : 2})` }), `${name} · ${c}`)];
+      bar.addEventListener("pointermove", e => showTip(e, tipNodes()));
+      bar.addEventListener("pointerleave", hideTip);
+      bar.addEventListener("focus", () => { const r = bar.getBoundingClientRect(); showTip({ clientX: r.right, clientY: r.top }, tipNodes()); });
+      bar.addEventListener("blur", hideTip);
+      bars.append(bar);
+    }
+    rows.push(h("div", { class: "name" + (key.has(c) ? " key" : "") }, c), bars);
+  }
+  $("#iou").replaceChildren(...rows);
+  $$("#iou .bars").forEach(el => el.style.backgroundImage = `repeating-linear-gradient(to right, transparent 0, transparent calc(25% - 1px), var(--grid) calc(25% - 1px), var(--grid) 25%)`);
+
+  // audit table
+  const t = $("#auditTable");
+  const head = h("tr", {}, h("th", {}, "Flag"), h("th", { class: "n" }, "Cases"), h("th", { class: "n" }, "Baseline F1"), h("th", { class: "n" }, "Fine-tuned P"), h("th", { class: "n" }, "R"), h("th", { class: "n" }, "F1"));
+  const body = Object.keys(FLAGS).map(f => {
+    const B = ab?.flags[f], F = af?.flags[f];
+    return h("tr", {}, h("td", {}, h("span", { class: `chip ${FLAGS[f].cls}` }, FLAGS[f].label)), h("td", { class: "n" }, (F || B)?.support ?? "—"),
+      h("td", { class: "n" }, B ? B.f1.toFixed(2) : "—"), h("td", { class: "n" }, F ? F.precision.toFixed(2) : "—"),
+      h("td", { class: "n" }, F ? F.recall.toFixed(2) : "—"), h("td", { class: "n" }, F ? h("b", {}, F.f1.toFixed(2)) : "—"));
+  });
+  t.replaceChildren(h("thead", {}, head), h("tbody", {}, body));
+
+  lineChart($("#curve"), d.curve, { fmt: v => (v * 100).toFixed(1) + "%", name: "Holdout mIoU", empty: "First holdout evaluation at step 1,000.", ref: d.curve_ref, refLabel: "Cityscapes baseline" });
+  lineChart($("#lossCurve"), d.loss, { fmt: v => v.toFixed(3), name: "Loss (50-step mean)", empty: "No training log yet." });
+
+  // gallery
+  const g = d.gallery || {};
+  const flags = Object.keys(FLAGS).filter(f => g[f]);
+  if (!flags.length) { $("#gallery").replaceChildren(h("p", { class: "muted" }, "Gallery is generated after the final evaluation (scripts/make_gallery.py).")); }
+  else {
+    const show = f => {
+      $$("#galFlags .btn").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === f));
+      const cols = [["tp", "Correct flag"], ["fp", "False alarm"], ["fn", "Missed"]];
+      $("#gallery").replaceChildren(...cols.map(([k, lab]) => h("div", {}, h("h3", { class: "small", style: "margin:4px 0 8px" }, `${lab} (${g[f][k].length})`),
+        h("div", { class: "stack", style: "gap:10px" }, g[f][k].slice(0, 3).map(n => h("figure", {}, h("img", { src: "/media/gallery/" + n, alt: lab, loading: "lazy" }), h("figcaption", {}, "Model overlay · " + n.split("_")[0])))))));
+      $("#gallery").className = "gallery";
+    };
+    $("#galFlags").replaceChildren(...flags.map(f => h("button", { class: "btn", "data-f": f, onclick: () => show(f) }, FLAGS[f].label)));
+    show(flags[0]);
+  }
+  renderField(await fetch("/api/reports/stats").then(r => r.ok ? r.json() : null).catch(() => null));
+  if (d.rule_review) {
+    const rr = d.rule_review;
+    $("#ruleReview").hidden = false;
+    $("#ruleReview").replaceChildren(h("h3", {}, "Are the rules themselves right?"), h("p", { class: "note", style: "margin:0" }, rr.text));
+  }
+}
+
+function renderField(st) {
+  const card = $("#fieldCard");
+  const head = [h("h3", {}, "Field validation from residents"),
+    h("p", { class: "small muted", style: "margin:-6px 0 10px" }, "Each 👍 / 👎 on the app's answer is a real-world label. Precision here is measured on residents' own photos, not on the dataset.")];
+  if (!st || !st.reports) { card.replaceChildren(...head, h("p", { class: "muted", style: "margin:0" }, "No resident reports yet. Take a photo in the SAGA mobile app to start.")); return; }
+  const rows = Object.keys(FLAGS).map(f => { const m = st.flags[f];
+    return h("tr", {}, h("td", {}, h("span", { class: `chip ${FLAGS[f].cls}` }, FLAGS[f].label)), h("td", { class: "n" }, m.raised_and_judged),
+      h("td", { class: "n" }, m.confirmed), h("td", { class: "n" }, m.precision == null ? "—" : h("b", {}, m.precision.toFixed(2)))); });
+  card.replaceChildren(...head,
+    h("div", { class: "kpis" }, stat("Reports", st.reports, `${st.reporters} resident${st.reporters === 1 ? "" : "s"}`),
+      stat("With location", st.with_location, "on the map"), stat("Judged by resident", st.judged,
+        `${st.verdicts.confirmed} confirmed · ${st.verdicts.rejected} disputed`),
+      stat("Missed barriers", st.verdicts.missed, st.miss_rate == null ? "no clean photos judged" : `${(st.miss_rate * 100).toFixed(0)}% of clean calls`)),
+    h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Flag"), h("th", { class: "n" }, "Raised & judged"), h("th", { class: "n" }, "Confirmed"), h("th", { class: "n" }, "Field precision"))), h("tbody", {}, rows))));
+}
+
+function lineChart(svg, pts, { fmt, name, empty, ref = null, refLabel = "" }) {
+  const W = svg.clientWidth || 480, H = 190, m = { l: 44, r: 12, t: 10, b: 24 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.replaceChildren();
+  const ns = "http://www.w3.org/2000/svg";
+  const s = (tag, a) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  if (!pts || !pts.length) { const t = s("text", { x: W / 2, y: H / 2, "text-anchor": "middle", fill: "var(--muted)", "font-size": 13 }); t.textContent = empty; svg.append(t); return; }
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  let y0 = Math.min(...ys, ref ?? Infinity), y1 = Math.max(...ys, ref ?? -Infinity); const pad = (y1 - y0) * 0.15 || Math.abs(y1) * 0.05 || 0.01; y0 -= pad; y1 += pad;
+  const x0 = 0, x1 = Math.max(...xs);
+  const X = v => m.l + (v - x0) / Math.max(1, x1 - x0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + (y1 - y0) * i / 4;
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": 1 }));
+    const t = s("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 }); t.textContent = fmt(v); svg.append(t);
+  }
+  const xt = s("text", { x: W - m.r, y: H - 6, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 }); xt.textContent = `step ${x1.toLocaleString()}`; svg.append(xt);
+  const xs0 = s("text", { x: m.l, y: H - 6, fill: "var(--muted)", "font-size": 11 }); xs0.textContent = "0"; svg.append(xs0);
+  svg.append(s("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)" }));
+  if (ref != null) {
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: Y(ref), y2: Y(ref), stroke: "var(--ink-2)", "stroke-width": 1.5, "stroke-dasharray": "5 4" }));
+    const rl = s("text", { x: W - m.r, y: Y(ref) - 6, "text-anchor": "end", fill: "var(--ink-2)", "font-size": 11 }); rl.textContent = `${refLabel} ${fmt(ref)}`; svg.append(rl);
+  }
+  svg.append(s("path", { d: pts.map((p, i) => `${i ? "L" : "M"}${X(p[0])},${Y(p[1])}`).join(""), fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  if (pts.length <= 20) pts.forEach(p => svg.append(s("circle", { cx: X(p[0]), cy: Y(p[1]), r: 4, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2 })));
+  const cross = s("line", { y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
+  const dot = s("circle", { r: 4.5, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
+  svg.append(cross, dot);
+  const hit = s("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" });
+  hit.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+    let best = pts[0]; for (const p of pts) if (Math.abs(X(p[0]) - px) < Math.abs(X(best[0]) - px)) best = p;
+    cross.setAttribute("x1", X(best[0])); cross.setAttribute("x2", X(best[0])); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", X(best[0])); dot.setAttribute("cy", Y(best[1])); dot.setAttribute("visibility", "visible");
+    showTip(e, [h("b", {}, fmt(best[1])), h("div", { class: "row" }, h("i", { style: "background:var(--series-1)" }), `${name} · step ${best[0].toLocaleString()}`)]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); hideTip(); });
+  svg.append(hit);
+}
+
+const route = () => {
+  const t = location.hash.slice(1);
+  const allowed = IS_MOBILE ? ["map"] : ["map", "report", "method"];
+  openTab(allowed.includes(t) ? t : "audit");
+};
+addEventListener("hashchange", route);
+if (location.hash) route();
+</script>
+</body>
+</html>

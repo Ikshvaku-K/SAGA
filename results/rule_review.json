@@ -1,0 +1,6 @@
+{
+  "method": "Visual review of rule output on the annotators' masks (test split), so segmentation error is excluded and only the rules are judged.",
+  "sidewalk_obstruction": {"reviewed": 14, "plausible": 8},
+  "pedestrian_in_roadway": {"reviewed": 12, "plausible": 12},
+  "text": "Rule precision, judged by eye on the human-labelled masks: sidewalk obstruction 8 of 14 flags plausible (bikes parked across a café sidewalk, an SUV over the sidewalk, a car on a wide night-time sidewalk); the other 6 trace to ambiguous annotations, mainly parking lanes and one NYC street labelled as sidewalk. Pedestrian in roadway: 12 of 12 sampled flags show a person on the road surface, most of them crossing, one walking beside sidewalks buried in snow. The rule cannot tell crossing from being forced off the sidewalk. No visible sidewalk (32 flags) includes suburban roads without sidewalks and sidewalks buried under snow piles, plus frames where the annotators did not mark a sidewalk."
+}
