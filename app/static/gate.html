@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SAGA: Street Accessibility and Guidance Audit</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/m/icons/favicon.png">
+<link rel="apple-touch-icon" href="/m/icons/apple-touch-icon.png">
+<link rel="manifest" href="/m/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SAGA">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
+  --border: rgba(11,11,11,0.10); --accent: #2a78d6; --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+    --border: rgba(255,255,255,0.12); --accent: #3987e5; --critical: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+  --border: rgba(255,255,255,0.12); --accent: #3987e5; --critical: #e66767;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink); min-height: 100dvh;
+  font: 17px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif;
+  display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+main { width: 100%; max-width: 420px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.brand img { width: 44px; height: 44px; border-radius: 11px; }
+.brand h1 { margin: 0; font-size: 24px; letter-spacing: -0.01em; line-height: 1.1; }
+.brand span { display: block; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 18px; }
+.step { font-size: 13px; color: var(--ink-2); margin: 0 0 6px; }
+.q { font-size: 24px; font-weight: 650; margin: 0 0 20px; letter-spacing: -0.01em; }
+.row { display: flex; gap: 10px; }
+button {
+  flex: 1; appearance: none; font: inherit; font-weight: 600; min-height: 54px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--page); color: var(--ink); cursor: pointer;
+}
+button:active { transform: scale(0.98); }
+button.primary { background: var(--accent); color: #fff; border-color: transparent; width: 100%; }
+input[type=password] {
+  width: 100%; font: inherit; padding: 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--page); color: var(--ink); margin: 0 0 12px;
+}
+.msg { min-height: 24px; margin: 14px 2px 0; color: var(--critical); font-weight: 600; }
+.dots { display: flex; gap: 6px; margin-bottom: 16px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.dots i.on { background: var(--accent); }
+[hidden] { display: none !important; }
+.choose { display: grid; gap: 12px; }
+.choose button { text-align: left; padding: 16px; min-height: 76px; }
+.choose b { display: block; font-size: 19px; }
+.choose span { display: block; font-weight: 400; font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+.choose .demo b::after { content: " · 15 min"; font-weight: 500; font-size: 14px; color: var(--ink-2); }
+input[type=text] {
+  width: 100%; font: inherit; padding: 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--page); color: var(--ink); margin: 0 0 6px;
+}
+.hint { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+.back { background: none; border: 0; color: var(--accent); font-weight: 500; min-height: 36px; padding: 0; margin-top: 12px; width: auto; flex: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <img src="/m/icons/apple-touch-icon.png" alt="">
+    <h1>SAGA <span>Street Accessibility and Guidance Audit</span></h1>
+  </div>
+  <div class="card">
+    <section id="choose" class="choose">
+      <p class="q" style="margin-bottom:6px">Sign in</p>
+      <button id="asUser"><b>User</b><span>Full access with the team password</span></button>
+      <button id="asDemo" class="demo"><b>Demo</b><span>Try SAGA for 15 minutes. Nothing you upload is kept.</span></button>
+    </section>
+    <div class="dots" id="dots" aria-hidden="true" hidden></div>
+    <section id="ask" hidden>
+      <p class="step" id="step"></p>
+      <p class="q" id="q" aria-live="polite"></p>
+      <div class="row">
+        <button id="yes">Yes</button>
+        <button id="no">No</button>
+      </div>
+    </section>
+    <form id="pw" hidden>
+      <p class="q">Password</p>
+      <label for="password" style="position:absolute;left:-9999px">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+      <button class="primary" type="submit">Enter</button>
+    </form>
+    <form id="nameForm" hidden novalidate>
+      <p class="q">Your first name</p>
+      <label for="name" style="position:absolute;left:-9999px">First name</label>
+      <input type="text" id="name" maxlength="9" autocomplete="given-name" autocapitalize="words" spellcheck="false" inputmode="text">
+      <p class="hint">Letters only, up to 9.</p>
+      <button class="primary" type="submit">Start 15-minute demo</button>
+    </form>
+    <button class="back" id="back" hidden>← Back</button>
+    <p class="msg" id="msg" role="alert"></p>
+  </div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+let mode = null, questions = [], answers = [];
+
+function render() {
+  const total = questions.length + 1;
+  $("#dots").replaceChildren(...Array.from({ length: total }, (_, i) => {
+    const d = document.createElement("i"); if (i <= answers.length) d.className = "on"; return d;
+  }));
+  const done = answers.length >= questions.length;
+  $("#ask").hidden = done;
+  $("#pw").hidden = !(done && mode === "user");
+  $("#nameForm").hidden = !(done && mode === "demo");
+  if (done) { (mode === "user" ? $("#password") : $("#name")).focus(); return; }
+  $("#step").textContent = `Question ${answers.length + 1} of ${questions.length}`;
+  $("#q").textContent = questions[answers.length];
+}
+async function start(m) {
+  mode = m; answers = []; $("#msg").textContent = "";
+  questions = (await (await fetch(`/api/auth/questions?mode=${m}`)).json()).questions;
+  $("#choose").hidden = true; $("#dots").hidden = false; $("#back").hidden = false;
+  render();
+}
+function home(msg = "") {
+  mode = null; answers = []; $("#password").value = ""; $("#name").value = "";
+  for (const id of ["#ask", "#pw", "#nameForm", "#dots", "#back"]) $(id).hidden = true;
+  $("#choose").hidden = false; $("#msg").textContent = msg;
+}
+function answer(a) { $("#msg").textContent = ""; answers.push(a); render(); }
+function restart(msg) { answers = []; $("#password").value = ""; $("#name").value = ""; $("#msg").textContent = msg; render(); }
+
+async function login(body) {
+  const res = await fetch("/api/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).catch(() => null);
+  if (res && res.ok) {
+    const next = new URLSearchParams(location.search).get("next") || "/";
+    location.replace(next.startsWith("/") && !next.startsWith("//") ? next : "/");
+    return;
+  }
+  const detail = res ? (await res.json().catch(() => ({}))).detail : "No connection.";
+  restart(res && res.status === 429 ? detail : "Please try again.");
+}
+
+$("#asUser").onclick = () => start("user");
+$("#asDemo").onclick = () => start("demo");
+$("#back").onclick = () => home();
+$("#yes").onclick = () => answer("yes");
+$("#no").onclick = () => answer("no");
+$("#pw").onsubmit = (e) => { e.preventDefault(); login({ mode: "user", answers, password: $("#password").value }); };
+$("#name").addEventListener("input", (e) => {  // letters only, as you type
+  const clean = e.target.value.replace(/[^A-Za-z]/g, "").slice(0, 9);
+  if (clean !== e.target.value) e.target.value = clean;
+});
+$("#nameForm").onsubmit = (e) => {
+  e.preventDefault();
+  const name = $("#name").value.trim();
+  if (!/^[A-Za-z]{1,9}$/.test(name)) { $("#msg").textContent = "Use letters only, up to 9."; $("#name").focus(); return; }
+  login({ mode: "demo", answers, name });
+};
+if (new URLSearchParams(location.search).get("expired")) home("Your 15-minute demo has ended. Thanks for trying SAGA!");
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Server runtime (PyTorch is installed separately: CUDA or CPU wheels depending on the machine)
+transformers
+safetensors
+fastapi
+uvicorn[standard]
+python-multipart
+pillow
+pillow-heif
+numpy
+scipy
+tqdm
